@@ -356,6 +356,7 @@ const S = {
   settings: Object.assign({}, DEFAULTS, store.get('settings', {})),
   queue: store.get('queue', []),
   conn: store.get('conn', {url: '', key: ''}),
+  defaultUrl: 'https://script.google.com/macros/s/AKfycbxo038bgk-RC_ji89G5hNBdVS56SzJlCovkRamLziL0htIcZpVhWHvkR5jXsZ4qtKONtg/exec',
   month: ym(today()),
   scope: 'all',
   sync: 'local',
@@ -900,7 +901,7 @@ function renderSettings() {
     $('#s-budget').value = st.budget || '';
     $('#s-goal').value = st.savingsGoal || '';
     $('#s-start').value = st.savingsStart || '';
-    $('#s-url').value = S.conn.url;
+    $('#s-url').value = S.conn.url || S.defaultUrl;
     $('#s-key').value = S.conn.key;
   }
   $('#s-bills').innerHTML = st.bills.length ? [...st.bills].sort((a, b) => num(a.day) - num(b.day)).map(b => `
