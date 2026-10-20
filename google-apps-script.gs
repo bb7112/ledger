@@ -7,7 +7,9 @@
  */
 const SECRET = 'CHANGE-ME';
 
-const HEAD = ['id', 'date', 'type', 'amount', 'category', 'merchant', 'scope', 'note', 'source', 'receiptId', 'receiptUrl', 'created'];
+// version 2 (2026-10-20): first chair reimbursements: reimb, submittedOn, paidOn, trip
+const VERSION = 2;
+const HEAD = ['id', 'date', 'type', 'amount', 'category', 'merchant', 'scope', 'note', 'source', 'receiptId', 'receiptUrl', 'created', 'reimb', 'submittedOn', 'paidOn', 'trip'];
 const ROOT_FOLDER = 'ledger receipts';
 
 function doGet() {
@@ -23,8 +25,8 @@ function doPost(e) {
   lock.waitLock(20000);
   try {
     switch (body.action) {
-      case 'ping': return out_({ ok: true });
-      case 'list': return out_({ ok: true, entries: list_(), settings: getSettings_() });
+      case 'ping': return out_({ ok: true, version: VERSION });
+      case 'list': return out_({ ok: true, version: VERSION, entries: list_(), settings: getSettings_() });
       case 'add':
       case 'update': return out_({ ok: true, entry: upsert_(body.entry, body.receipt) });
       case 'delete': remove_(body.entry.id); return out_({ ok: true });
@@ -60,7 +62,12 @@ function sheet_(name, head) {
 
 function entries_() {
   const sh = sheet_('entries', HEAD);
-  sh.getRange('B:B').setNumberFormat('@'); // keep dates as plain yyyy-mm-dd text
+  // add any new columns to sheets made by an older version
+  const have = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
+  if (have.length < HEAD.length || HEAD.some((h, i) => have[i] !== h)) {
+    sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]).setFontWeight('bold');
+  }
+  ['B:B', 'N:N', 'O:O'].forEach(c => sh.getRange(c).setNumberFormat('@')); // keep dates as plain yyyy-mm-dd text
   return sh;
 }
 
@@ -73,6 +80,7 @@ function list_() {
     HEAD.forEach((h, i) => {
       let v = r[i];
       if (v instanceof Date) v = Utilities.formatDate(v, tz, h === 'created' ? "yyyy-MM-dd'T'HH:mm:ss" : 'yyyy-MM-dd');
+      if (v === undefined) v = '';
       o[h] = v;
     });
     o.amount = Number(o.amount) || 0;

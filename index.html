@@ -158,6 +158,16 @@ textarea.in{resize:vertical;min-height:44px}
 .trend .m i{flex:1;border-radius:3px 3px 0 0;min-height:2px}
 .trend-l{display:flex;gap:8px;margin-top:4px}
 .trend-l span{flex:1;text-align:center;font-size:11px;color:var(--ink3)}
+.stats3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stats3 .card{padding:11px 12px}
+.stats3 .v{font-size:19px;font-weight:500;margin-top:2px;letter-spacing:-.01em}
+.pill-s{font-size:11px;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--chip);color:var(--ink2)}
+.pill-s.todo{background:var(--warn-bg);color:var(--warn)} .pill-s.sent{background:rgba(138,127,214,.14);color:var(--bar)} .pill-s.done{background:var(--good-bg);color:var(--good)}
+button.pill-s{cursor:pointer}
+.chk{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--ink3);display:grid;place-items:center;flex:none}
+.chk.on{background:var(--ink);border-color:var(--ink);color:var(--bg1)}
+.chk svg{width:13px;height:13px}
+.btn.small{padding:10px;font-size:14px;margin-top:8px}
 .key{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px}
 
 /* ---------- laptop / web dashboard ---------- */
@@ -193,6 +203,9 @@ textarea.in{resize:vertical;min-height:44px}
   #d-cats .list{display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
   #v-dash .monthnav .iconbtn[href="#set"]{display:none}
   #v-up.on,#v-hist.on,#v-set.on{max-width:640px}
+  #v-fc.on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+  #v-fc>.top,#v-fc>#f-stats{grid-column:1/3}
+  #v-fc>#f-card{grid-column:1/3}
   .sheet-bg{align-items:center}
   .sheet{border-radius:22px;max-height:86vh}
   .toast{bottom:28px}
@@ -269,8 +282,9 @@ textarea.in{resize:vertical;min-height:44px}
         <input id="u-amount" inputmode="decimal" placeholder="$0.00" autocomplete="off"></div>
       <div><label class="f" for="u-merchant" id="u-merchant-l">store</label><input class="in" id="u-merchant" autocomplete="off" placeholder="target"></div>
       <div><label class="f">category</label><div class="pills" id="u-cats"></div></div>
-      <div><label class="f">personal or business</label>
-        <div class="seg" id="u-scope"><button class="on" data-scope="personal">personal</button><button data-scope="business">business</button></div></div>
+      <div><label class="f">personal, business or first chair</label>
+        <div class="seg" id="u-scope"><button class="on" data-scope="personal">personal</button><button data-scope="business">business</button><button data-scope="firstchair">first chair</button></div></div>
+      <div id="u-trip-wrap" class="hidden"><label class="f" for="u-trip">trip (optional, groups travel together)</label><input class="in" id="u-trip" list="trips" autocomplete="off" placeholder="nyc shoot"></div>
       <div class="grid2">
         <div><label class="f" for="u-date">date</label><input class="in" type="date" id="u-date"></div>
         <div><label class="f" for="u-note">note</label><input class="in" id="u-note" autocomplete="off" placeholder="optional"></div>
@@ -279,6 +293,19 @@ textarea.in{resize:vertical;min-height:44px}
       <div class="faint small" style="text-align:center">receipt photos are kept in your google drive for taxes</div>
     </div>
   </section>
+
+  <!-- ============ FIRST CHAIR ============ -->
+  <section class="view" id="v-fc">
+    <div class="top"><h1>first chair</h1><span class="faint small" id="f-sub">charges you get paid back for</span></div>
+    <div class="stats3" id="f-stats"></div>
+    <div class="card" id="f-card"></div>
+    <div class="card" id="f-plat"></div>
+    <div class="card" id="f-submit"></div>
+    <div class="card" id="f-wait"></div>
+    <div id="f-trips" style="display:contents"></div>
+    <div class="card" id="f-paid"></div>
+  </section>
+  <datalist id="trips"></datalist>
 
   <!-- ============ HISTORY ============ -->
   <section class="view" id="v-hist">
@@ -295,6 +322,7 @@ textarea.in{resize:vertical;min-height:44px}
       <button class="pill" data-f="expense">expenses</button>
       <button class="pill" data-f="income">income</button>
       <button class="pill" data-f="business">business</button>
+      <button class="pill" data-f="firstchair">first chair</button>
       <button class="pill" data-f="noreceipt">no receipt</button>
     </div>
     <div class="card" id="h-list"></div>
@@ -345,6 +373,7 @@ textarea.in{resize:vertical;min-height:44px}
   <span class="brand desk">ledger</span>
   <a href="#dash" data-tab="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="2"/><rect x="13" y="4" width="7" height="5" rx="2"/><rect x="13" y="11" width="7" height="9" rx="2"/><rect x="4" y="15" width="7" height="5" rx="2"/></svg>dashboard</a>
   <a href="#up" data-tab="up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>upload</a>
+  <a href="#fc" data-tab="fc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v4"/><path d="M5 11a2 2 0 0 1 2 2v1h10v-1a2 2 0 1 1 2 2v2H5v-2a2 2 0 0 1 0-4z"/><path d="M7 17v3M17 17v3"/></svg>first chair</a>
   <a href="#hist" data-tab="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>history</a>
   <a href="#set" data-tab="set" class="desk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>settings</a>
 </div></nav>
@@ -393,13 +422,14 @@ const KEYWORDS = {
   'travel': ['flight','airline','hotel','airbnb','delta','american airlines','united','southwest','jetblue','expedia'],
   'fun': ['movie','cinema','concert','tickets','game','museum','bowling'],
   'gifts': ['gift','present','flowers','birthday'],
-  'software': ['adobe','canva','figma','notion','claude','chatgpt','openai','google workspace','squarespace','shopify','domain','software','app'],
+  'software': ['capcut','epidemic sound','manychat','later','artlist','envato','midjourney','elevenlabs','adobe','canva','figma','notion','claude','chatgpt','openai','google workspace','squarespace','shopify','domain','software','app'],
   'supplies': ['office depot','staples','supplies','paper','printer','ink','michaels'],
   'salary': ['salary','paycheck','payroll'],
   'freelance': ['client','invoice','retainer','freelance','project'],
   'refund': ['refund','return'],
 };
-const DEFAULTS = {budget: 0, savingsGoal: 0, savingsStart: 0, bills: [], paid: {}};
+const DEFAULTS = {budget: 0, savingsGoal: 0, savingsStart: 0, bills: [], paid: {}, fcBills: {}, cardDueDay: 0, cardPaid: {}};
+const pick = (o, keys) => { const r = {}; if (o) keys.forEach(k => { if (o[k]) r[k] = o[k]; }); return r; };
 
 const S = {
   entries: store.get('entries', []),
@@ -468,7 +498,9 @@ async function pull() {
   try {
     setSync('wait');
     const j = await api({action: 'list'});
-    S.entries = j.entries || [];
+    const local = new Map(S.entries.map(e => [e.id, e]));
+    S.entries = (j.entries || []).map(e => j.version >= 2 ? e : Object.assign({}, e, pick(local.get(e.id), ['reimb', 'submittedOn', 'paidOn', 'trip'])));
+    S.serverVersion = j.version || 1;
     if (j.settings) S.settings = Object.assign({}, DEFAULTS, j.settings);
     else if (S.settings.bills.length || S.settings.budget) enqueue({action: 'settings', settings: S.settings});
     saveEntries(); saveSettingsLocal();
@@ -493,7 +525,11 @@ function deleteEntry(id) {
 }
 
 // ---------------- dashboard ----------------
-function inScope(x) { return S.scope === 'all' || (x.scope || 'personal') === S.scope; }
+// first chair charges get paid back, so they stay out of your own spending and budget
+function inScope(x) { const sc = x.scope || 'personal'; return S.scope === 'all' ? sc !== 'firstchair' : sc === S.scope; }
+const SCOPES = [['personal', 'personal'], ['business', 'business'], ['firstchair', 'first chair']];
+const scopeTag = sc => sc === 'business' ? ' · business' : sc === 'firstchair' ? ' · first chair' : '';
+const scopeOptions = sel => SCOPES.map(([v, l]) => `<option value="${v}" ${(sel || 'personal') === v ? 'selected' : ''}>${l}</option>`).join('');
 function monthData(m) {
   const ents = S.entries.filter(e => ym(String(e.date)) === m && inScope(e));
   const bills = S.settings.bills.filter(inScope);
@@ -542,7 +578,7 @@ function renderDash() {
   [...d.bills].sort((a, b) => num(a.day) - num(b.day)).forEach(b => {
     const on = paid.includes(b.id);
     h += `<div class="row"><div class="l"><button class="tick ${on ? 'on' : ''}" data-bill="${esc(b.id)}" aria-label="mark ${esc(b.name)} paid">${on ? CHECK : ''}</button>
-      <div><div class="name">${esc(b.name)}</div><div class="faint small">${b.day ? 'due the ' + ordinal(num(b.day)) + ' · ' : ''}${esc(b.category || 'other')}${b.scope === 'business' ? ' · business' : ''}</div></div></div>
+      <div><div class="name">${esc(b.name)}</div><div class="faint small">${b.day ? 'due the ' + ordinal(num(b.day)) + ' · ' : ''}${esc(b.category || 'other')}${scopeTag(b.scope)}</div></div></div>
       <div class="amt">${money(num(b.amount))}</div></div>`;
   });
   $('#d-bills').innerHTML = h + '</div>';
@@ -574,7 +610,7 @@ function renderDash() {
   if (!d.income.length) h += `<div class="empty">no income logged in ${monthName(m)}. <a class="link" href="#up" data-income="1">add income</a></div>`;
   d.income.forEach(e => {
     h += `<div class="row" data-entry="${esc(e.id)}"><div class="l"><span class="faint small" style="width:44px;flex:none">${dayLabel(String(e.date))}</span>
-      <div><div class="name">${esc(e.merchant || e.category)}</div><div class="faint small">${esc(e.category)}${e.scope === 'business' ? ' · business' : ''}</div></div></div>
+      <div><div class="name">${esc(e.merchant || e.category)}</div><div class="faint small">${esc(e.category)}${scopeTag(e.scope)}</div></div></div>
       <div class="amt good">+${money(num(e.amount))}</div></div>`;
   });
   $('#d-incomes').innerHTML = h + '</div>';
@@ -588,7 +624,7 @@ function renderDash() {
   recent.forEach(e => {
     const flag = e.scope === 'business' && !hasReceipt(e) ? '<span class="tag warn">no receipt</span>' : '';
     h += `<div class="row" data-entry="${esc(e.id)}" style="cursor:pointer"><div class="l"><span class="faint small" style="width:44px;flex:none">${dayLabel(String(e.date))}</span>
-      <div><div class="name">${esc(e.merchant || e.category)}${flag}</div><div class="faint small">${esc(e.category)}${e.scope === 'business' ? ' · business' : ''}${hasReceipt(e) ? ' · receipt' : ''}</div></div></div>
+      <div><div class="name">${esc(e.merchant || e.category)}${flag}</div><div class="faint small">${esc(e.category)}${scopeTag(e.scope)}${hasReceipt(e) ? ' · receipt' : ''}</div></div></div>
       <div class="amt">${money(num(e.amount))}</div></div>`;
   });
   $('#d-recent').innerHTML = h + '</div>';
@@ -623,6 +659,7 @@ function renderHist() {
   if (hFilter === 'expense') list = list.filter(e => e.type === 'expense');
   if (hFilter === 'income') list = list.filter(e => e.type === 'income');
   if (hFilter === 'business') list = list.filter(e => e.scope === 'business');
+  if (hFilter === 'firstchair') list = list.filter(e => e.scope === 'firstchair');
   if (hFilter === 'noreceipt') list = list.filter(e => e.type === 'expense' && !hasReceipt(e));
   if (q) list = list.filter(e => [e.merchant, e.category, e.note, e.scope, String(e.amount)].join(' ').toLowerCase().includes(q));
   list.sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.created || '').localeCompare(String(a.created || '')));
@@ -633,7 +670,7 @@ function renderHist() {
     const inc = e.type === 'income', sav = e.type === 'savings';
     const flag = e.type === 'expense' && e.scope === 'business' && !hasReceipt(e) ? '<span class="tag warn">no receipt</span>' : '';
     h += `<div class="row" data-entry="${esc(e.id)}" style="cursor:pointer"><div class="l"><div class="ico ${inc ? 'inc' : ''}">${hasReceipt(e) ? RECEIPT_ICO : (inc ? '+' : sav ? '↗' : esc((e.category || '?')[0]))}</div>
-      <div><div class="name">${esc(e.merchant || e.category || (sav ? 'savings' : ''))}${flag}</div><div class="faint small">${sav ? 'savings' : esc(e.category)}${e.scope === 'business' ? ' · business' : ''}${e.note ? ' · ' + esc(e.note) : ''}</div></div></div>
+      <div><div class="name">${esc(e.merchant || e.category || (sav ? 'savings' : ''))}${flag}</div><div class="faint small">${sav ? 'savings' : esc(e.category)}${scopeTag(e.scope)}${e.note ? ' · ' + esc(e.note) : ''}</div></div></div>
       <div class="amt ${inc ? 'good' : ''}">${inc ? '+' : ''}${money(num(e.amount))}</div></div>`;
   });
   $('#h-list').innerHTML = h;
@@ -657,8 +694,9 @@ function setUType(t) {
   $('#u-save').textContent = t === 'income' ? 'save income' : 'save expense';
   if (U.cat && !CATS[t].includes(U.cat)) U.cat = null;
   renderUploadCats();
+  if (U.scope) setUScope(U.scope);
 }
-function setUScope(s) { U.scope = s; $$('#u-scope button').forEach(b => b.classList.toggle('on', b.dataset.scope === s)); }
+function setUScope(s) { U.scope = s; $$('#u-scope button').forEach(b => b.classList.toggle('on', b.dataset.scope === s)); $('#u-trip-wrap').classList.toggle('hidden', s !== 'firstchair' || U.type !== 'expense'); }
 function setMethod(m) {
   U.method = m;
   $$('.method').forEach(b => b.classList.toggle('on', b.dataset.method === m));
@@ -669,7 +707,7 @@ function setMethod(m) {
   if (m === 'voice') { /* wait for mic tap */ }
 }
 function resetUpload() {
-  ['#u-amount', '#u-merchant', '#u-note', '#u-quick'].forEach(s => $(s).value = '');
+  ['#u-amount', '#u-merchant', '#u-note', '#u-quick', '#u-trip'].forEach(s => $(s).value = '');
   $('#u-date').value = today();
   U.cat = null; U.receipt = null; U.method = null;
   $$('.method').forEach(b => b.classList.remove('on'));
@@ -696,6 +734,7 @@ function saveUpload() {
     category: U.cat || guessCategory($('#u-merchant').value + ' ' + $('#u-note').value, U.type) || 'other',
     merchant: $('#u-merchant').value.trim(), scope: U.scope, note: $('#u-note').value.trim(),
     source: U.method || 'type', receiptId: '', receiptUrl: '', created: new Date().toISOString(),
+    reimb: '', submittedOn: '', paidOn: '', trip: U.scope === 'firstchair' ? $('#u-trip').value.trim().toLowerCase() : '',
   };
   addEntry(e, U.receipt);
   toast(`${U.type === 'income' ? 'income' : 'expense'} saved · ${money(amount)}`);
@@ -748,7 +787,8 @@ function parseLine(raw) {
   if (/\byesterday\b/.test(s)) { const d = new Date(); d.setDate(d.getDate() - 1); out.date = isoDay(d); s = s.replace(/\byesterday\b/, ' '); }
   s = s.replace(/\btoday\b/, ' ');
   // scope
-  if (/\b(business|for work|work expense)\b/.test(s)) out.scope = 'business';
+  if (/\b(first chair|firstchair|fc|reimburse|reimbursable)\b/.test(s)) { out.scope = 'firstchair'; s = s.replace(/\b(first chair|firstchair|fc|reimburse|reimbursable)\b/g, ' '); }
+  else if (/\b(business|for work|work expense)\b/.test(s)) out.scope = 'business';
   else if (/\bpersonal\b/.test(s)) out.scope = 'personal';
   // amount: "42 dollars and 50 cents", "42 dollars 50", "$42.50", "42,50", "42 50"
   let m = s.match(/(\d[\d,]*)\s*dollars?\s*(?:and\s*)?(\d{1,2})\s*(?:cents?)?\b/);
@@ -901,7 +941,11 @@ function openEntry(id) {
     <div class="amountbox"><input id="e-amount" inputmode="decimal" value="${num(e.amount).toFixed(2)}"></div>
     ${isSav ? '' : `<div><label class="f" for="e-merchant">${e.type === 'income' ? 'from' : 'store'}</label><input class="in" id="e-merchant" value="${esc(e.merchant)}"></div>
     <div class="grid2"><div><label class="f" for="e-cat">category</label><select class="in" id="e-cat">${catOptions(e.type, e.category)}</select></div>
-      <div><label class="f" for="e-scope">personal or business</label><select class="in" id="e-scope"><option ${e.scope !== 'business' ? 'selected' : ''}>personal</option><option ${e.scope === 'business' ? 'selected' : ''}>business</option></select></div></div>`}
+      <div><label class="f" for="e-scope">who it's for</label><select class="in" id="e-scope">${scopeOptions(e.scope)}</select></div></div>
+    <div id="e-fc" class="${e.scope === 'firstchair' && e.type === 'expense' ? '' : 'hidden'}" style="display:flex;flex-direction:column;gap:12px">
+      <div class="grid2"><div><label class="f" for="e-reimb">paid back?</label><select class="in" id="e-reimb">${[['', 'to submit'], ['submitted', 'submitted'], ['paid', 'paid back']].map(([v, l]) => `<option value="${v}" ${(e.reimb || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div><label class="f" for="e-trip">trip</label><input class="in" id="e-trip" list="trips" value="${esc(e.trip)}" placeholder="optional"></div></div>
+    </div>`}
     <div class="grid2"><div><label class="f" for="e-date">date</label><input class="in" type="date" id="e-date" value="${esc(e.date)}"></div>
       <div><label class="f" for="e-note">note</label><input class="in" id="e-note" value="${esc(e.note)}"></div></div>
     ${isSav ? '' : `<div id="e-receipt">${e.receiptId ? `<button class="btn ghost" id="e-view">${RECEIPT_ICO}view receipt</button>` : pendingReceipt(e.id) ? '<div class="muted small">receipt is uploading to google drive…</div>' : `<button class="btn ghost" id="e-add-receipt">${RECEIPT_ICO}add receipt photo</button>`}</div>
@@ -909,6 +953,7 @@ function openEntry(id) {
     <button class="btn" id="e-save">save changes</button>
     <button class="btn danger" id="e-del">delete</button>`);
   let newReceipt = null;
+  if ($('#e-scope')) $('#e-scope').onchange = () => $('#e-fc').classList.toggle('hidden', $('#e-scope').value !== 'firstchair' || e.type !== 'expense');
   const fileIn = $('#e-file');
   if ($('#e-add-receipt')) $('#e-add-receipt').onclick = () => fileIn.click();
   if (fileIn) fileIn.onchange = async () => {
@@ -920,6 +965,11 @@ function openEntry(id) {
   $('#e-save').onclick = () => {
     const upd = Object.assign({}, e, {amount: num($('#e-amount').value), date: $('#e-date').value || e.date, note: $('#e-note').value.trim()});
     if (!isSav) Object.assign(upd, {merchant: $('#e-merchant').value.trim(), category: $('#e-cat').value, scope: $('#e-scope').value});
+    if (!isSav && upd.scope === 'firstchair' && upd.type === 'expense') {
+      const r = $('#e-reimb').value;
+      Object.assign(upd, {reimb: r, trip: $('#e-trip').value.trim().toLowerCase(),
+        submittedOn: r ? (e.submittedOn || today()) : '', paidOn: r === 'paid' ? (e.paidOn || today()) : ''});
+    }
     if (!upd.amount) { toast('amount can’t be zero'); return; }
     updateEntry(upd, newReceipt); closeSheet(); toast('saved'); render();
   };
@@ -938,8 +988,8 @@ async function viewReceipt(e) {
   } catch (err) { box.innerHTML = `<div class="muted small">couldn’t load the receipt. <a class="link" href="${esc(e.receiptUrl)}" target="_blank" rel="noopener">open in google drive</a></div>`; }
 }
 
-function openBill(id) {
-  const b = S.settings.bills.find(x => x.id === id) || {id: uid(), name: '', amount: '', day: '', category: 'housing', scope: 'personal'};
+function openBill(id, preset) {
+  const b = S.settings.bills.find(x => x.id === id) || Object.assign({id: uid(), name: '', amount: '', day: '', category: 'housing', scope: 'personal'}, preset);
   const isNew = !S.settings.bills.some(x => x.id === b.id);
   openSheet(`
     <h3>${isNew ? 'add fixed bill' : 'edit bill'}</h3>
@@ -947,7 +997,7 @@ function openBill(id) {
     <div class="grid2"><div><label class="f" for="b-amount">monthly amount</label><input class="in" id="b-amount" inputmode="decimal" value="${b.amount === '' ? '' : num(b.amount).toFixed(2)}" placeholder="2100"></div>
       <div><label class="f" for="b-day">due day</label><input class="in" id="b-day" inputmode="numeric" value="${esc(b.day)}" placeholder="1"></div></div>
     <div class="grid2"><div><label class="f" for="b-cat">category</label><select class="in" id="b-cat">${catOptions('expense', b.category)}</select></div>
-      <div><label class="f" for="b-scope">personal or business</label><select class="in" id="b-scope"><option ${b.scope !== 'business' ? 'selected' : ''}>personal</option><option ${b.scope === 'business' ? 'selected' : ''}>business</option></select></div></div>
+      <div><label class="f" for="b-scope">who it's for</label><select class="in" id="b-scope">${scopeOptions(b.scope)}</select></div></div>
     <button class="btn" id="b-save">save bill</button>
     ${isNew ? '' : '<button class="btn danger" id="b-del">remove bill</button>'}`);
   $('#b-name').addEventListener('input', () => { const c = guessCategory($('#b-name').value, 'expense'); if (c) $('#b-cat').value = c; });
@@ -987,7 +1037,7 @@ function renderSettings() {
     $('#s-key').value = S.conn.key;
   }
   $('#s-bills').innerHTML = st.bills.length ? [...st.bills].sort((a, b) => num(a.day) - num(b.day)).map(b => `
-    <div class="billrow" data-editbill="${esc(b.id)}" style="cursor:pointer"><div><div>${esc(b.name)}</div><div class="faint small">${b.day ? 'due the ' + ordinal(num(b.day)) + ' · ' : ''}${esc(b.category)}${b.scope === 'business' ? ' · business' : ''}</div></div><div class="amt">${money(num(b.amount))}</div></div>`).join('')
+    <div class="billrow" data-editbill="${esc(b.id)}" style="cursor:pointer"><div><div>${esc(b.name)}</div><div class="faint small">${b.day ? 'due the ' + ordinal(num(b.day)) + ' · ' : ''}${esc(b.category)}${scopeTag(b.scope)}</div></div><div class="amt">${money(num(b.amount))}</div></div>`).join('')
     : '<div class="empty">no fixed bills yet</div>';
   const years = [...new Set([new Date().getFullYear(), ...S.entries.map(e => Number(String(e.date).slice(0, 4))).filter(Boolean)])].sort((a, b) => b - a);
   const cur = $('#s-year').value;
@@ -1003,10 +1053,154 @@ function downloadCsv() {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+// ---------------- first chair reimbursements ----------------
+// each first chair charge moves: to submit -> submitted -> paid back
+const F = {sel: new Set()};
+const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
+const shortDate = d => { const [, M, D] = String(d).split('-'); return `${MONTHS[Number(M) - 1].slice(0, 3)} ${Number(D)}`; };
+const REIMB = {'': ['to submit', 'todo'], submitted: ['submitted', 'sent'], paid: ['paid back', 'done']};
+const NEXT_REIMB = {'': 'submitted', submitted: 'paid', paid: ''};
+const fcPill = r => `<span class="pill-s ${REIMB[r || ''][1]}">${REIMB[r || ''][0]}</span>`;
+const fcBillStatus = (m, id) => ((S.settings.fcBills || {})[m] || {})[id] || '';
+const CHK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+function fillTrips() {
+  const trips = [...new Set(S.entries.map(e => e.trip).filter(Boolean))].sort();
+  $('#trips').innerHTML = trips.map(t => `<option value="${esc(t)}">`).join('');
+}
+function fcRow(e, right) {
+  const noRec = !hasReceipt(e) ? '<span class="tag warn">no receipt</span>' : '';
+  return `<div class="l"><div style="min-width:0"><div class="name">${esc(e.merchant || e.category)}${noRec}</div>
+    <div class="faint small">${shortDate(e.date)} · ${esc(e.category)}${e.trip ? ' · ' + esc(e.trip) : ''}</div></div></div>${right}`;
+}
+
+function renderFC() {
+  const t = today(), m = ym(t), st = S.settings;
+  const fc = S.entries.filter(e => e.scope === 'firstchair' && e.type === 'expense');
+  const bills = st.bills.filter(b => b.scope === 'firstchair').sort((a, b) => num(a.day) - num(b.day));
+  const charged = bills.filter(b => !b.day || num(b.day) <= Number(t.slice(8)));
+  const toSubmit = fc.filter(e => !e.reimb).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const waiting = fc.filter(e => e.reimb === 'submitted').sort((a, b) => String(a.submittedOn).localeCompare(String(b.submittedOn)));
+  const paid = fc.filter(e => e.reimb === 'paid').sort((a, b) => String(b.paidOn).localeCompare(String(a.paidOn)));
+  const tot = a => a.reduce((x, e) => x + num(e.amount), 0);
+  const billTot = s => charged.filter(b => fcBillStatus(m, b.id) === s).reduce((x, b) => x + num(b.amount), 0);
+  const tsTot = tot(toSubmit) + billTot(''), wTot = tot(waiting) + billTot('submitted');
+  const pMonth = paid.filter(e => ym(String(e.paidOn)) === m), pTot = tot(pMonth) + billTot('paid');
+  F.sel = new Set([...F.sel].filter(id => toSubmit.some(e => e.id === id)));
+
+  $('#f-sub').innerHTML = connected() && S.serverVersion === 1
+    ? '<span style="color:var(--warn)">update your google script so these statuses save to your sheet</span>'
+    : 'charges you get paid back for';
+
+  // totals
+  const oldest = waiting[0] && waiting[0].submittedOn;
+  $('#f-stats').innerHTML = `
+    <div class="card"><div class="muted small">to submit</div><div class="v" style="color:var(--warn)">${moneyShort(tsTot)}</div><div class="faint small">${toSubmit.length + charged.filter(b => !fcBillStatus(m, b.id)).length} items</div></div>
+    <div class="card"><div class="muted small">waiting</div><div class="v" style="color:var(--bar)">${moneyShort(wTot)}</div><div class="faint small">${oldest ? 'sent ' + shortDate(oldest) : 'nothing out'}</div></div>
+    <div class="card"><div class="muted small">paid back</div><div class="v good">${moneyShort(pTot)}</div><div class="faint small">in ${MONTHS[Number(m.slice(5)) - 1]}</div></div>`;
+
+  // credit card due date
+  let h;
+  if (!st.cardDueDay) {
+    h = `<h2>credit card due date</h2><div class="muted small" style="margin:4px 0 8px">add the day your card is due so you never pay late on first chair charges</div>
+      <div class="grid2"><input class="in" id="f-due" inputmode="numeric" placeholder="25"><button class="btn small" id="f-due-save" style="margin:0">save</button></div>`;
+  } else {
+    const [y, mo, d] = t.split('-').map(Number), day = Number(st.cardDueDay);
+    const due = d > day ? new Date(y, mo, Math.min(day, new Date(y, mo + 1, 0).getDate())) : new Date(y, mo - 1, Math.min(day, new Date(y, mo, 0).getDate()));
+    const dueIso = isoDay(due), dueYm = ym(dueIso), left = daysBetween(t, dueIso), isPaid = !!(st.cardPaid || {})[dueYm];
+    h = `<div class="row" style="padding:0"><div class="l"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/></svg></div>
+      <div><div class="name" style="font-weight:500">card due ${shortDate(dueIso)} · ${left === 0 ? 'today' : left + ' day' + (left === 1 ? '' : 's')}</div>
+      <div class="faint small">${money(tsTot + wTot)} of first chair charges not paid back yet · <button class="link" id="f-due-change" style="font-size:12px">change day</button></div></div></div>
+      <button class="pill-s ${isPaid ? 'done' : (left <= 3 ? 'todo' : '')}" data-cardpaid="${dueYm}">${isPaid ? 'paid' : 'not paid'}</button></div>`;
+  }
+  $('#f-card').innerHTML = h;
+
+  // monthly platforms
+  h = `<h2>platforms every month <span class="r">${money(bills.reduce((x, b) => x + num(b.amount), 0))}</span></h2><div class="list">`;
+  if (!bills.length) h += `<div class="empty">add the platforms you pay for first chair, like capcut or manychat.<br><button class="link" id="f-add-plat">add a platform</button></div>`;
+  bills.forEach(b => {
+    const due = b.day && num(b.day) > Number(t.slice(8));
+    const stt = fcBillStatus(m, b.id);
+    h += `<div class="row"><div class="l"><div><div class="name" data-editbill="${esc(b.id)}" style="cursor:pointer">${esc(b.name)}</div><div class="faint small">${money(num(b.amount))}${b.day ? ' · charges the ' + ordinal(num(b.day)) : ''}</div></div></div>
+      ${due ? '<span class="pill-s">not charged yet</span>' : `<button class="pill-s ${REIMB[stt][1]}" data-fcbill="${esc(b.id)}" title="tap to change">${REIMB[stt][0]}</button>`}</div>`;
+  });
+  if (bills.length) h += `<div class="faint small" style="margin-top:6px">tap a status to move it along. <button class="link" id="f-add-plat" style="font-size:12px">add a platform</button></div>`;
+  $('#f-plat').innerHTML = h + '</div>';
+
+  // to submit
+  const selTot = toSubmit.filter(e => F.sel.has(e.id)).reduce((x, e) => x + num(e.amount), 0);
+  h = `<h2>to submit ${toSubmit.length > 1 ? `<button class="link" id="f-selall">${F.sel.size === toSubmit.length ? 'clear' : 'select all'}</button>` : ''}</h2><div class="list">`;
+  if (!toSubmit.length) h += `<div class="empty">nothing waiting to be submitted</div>`;
+  toSubmit.forEach(e => {
+    h += `<div class="row" data-entry="${esc(e.id)}" style="cursor:pointer"><button class="chk ${F.sel.has(e.id) ? 'on' : ''}" data-fcsel="${esc(e.id)}" aria-label="select ${esc(e.merchant)}">${F.sel.has(e.id) ? CHK : ''}</button>
+      <div style="flex:1;min-width:0;display:flex;justify-content:space-between;gap:10px">${fcRow(e, `<div class="amt">${money(num(e.amount))}</div>`)}</div></div>`;
+  });
+  if (F.sel.size) h += `<button class="btn small" id="f-submit-btn">mark ${F.sel.size} as submitted · ${money(selTot)}</button>`;
+  $('#f-submit').innerHTML = h + '</div>';
+
+  // submitted, waiting to be paid back
+  h = `<h2>waiting to be paid back ${waiting.length > 1 ? '<button class="link" id="f-paidall">all paid back</button>' : ''}</h2><div class="list">`;
+  if (!waiting.length) h += `<div class="empty">nothing waiting on a refund</div>`;
+  waiting.forEach(e => {
+    const days = e.submittedOn ? daysBetween(e.submittedOn, t) : 0;
+    h += `<div class="row" data-entry="${esc(e.id)}" style="cursor:pointer"><div class="l"><div style="min-width:0"><div class="name">${esc(e.merchant || e.category)}${days >= 30 ? '<span class="tag warn">follow up</span>' : ''}</div>
+      <div class="faint small">${money(num(e.amount))} · sent ${e.submittedOn ? shortDate(e.submittedOn) + ' · ' + days + ' day' + (days === 1 ? '' : 's') + ' ago' : ''}</div></div></div>
+      <button class="pill-s done" data-fcpaid="${esc(e.id)}">paid back?</button></div>`;
+  });
+  $('#f-wait').innerHTML = h + '</div>';
+
+  // trips
+  const trips = {};
+  fc.filter(e => e.trip).forEach(e => (trips[e.trip] ||= []).push(e));
+  const tripNames = Object.keys(trips).sort((a, b) => String(trips[b].map(e => e.date).sort().pop()).localeCompare(String(trips[a].map(e => e.date).sort().pop())))
+    .filter((n, i) => i < 2 || trips[n].some(e => e.reimb !== 'paid')).slice(0, 4);
+  $('#f-trips').innerHTML = tripNames.map(n => {
+    const items = trips[n].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const open = items.filter(e => !e.reimb).length;
+    return `<div class="card"><h2><span>✈︎ ${esc(n)}</span><span class="r">${money(tot(items))}</span></h2><div class="list">
+      ${items.map(e => `<div class="row" data-entry="${esc(e.id)}" style="cursor:pointer">${fcRow(e, `<div style="display:flex;align-items:center;gap:8px"><span class="amt">${money(num(e.amount))}</span>${fcPill(e.reimb)}</div>`)}</div>`).join('')}
+      ${open ? `<button class="btn small ghost" data-fctrip="${esc(n)}">mark ${open} as submitted</button>` : ''}</div></div>`;
+  }).join('');
+
+  // paid back
+  h = `<h2>paid back <span class="r good">${money(tot(pMonth))} in ${MONTHS[Number(m.slice(5)) - 1]}</span></h2><div class="list">`;
+  if (!paid.length) h += `<div class="empty">nothing paid back yet</div>`;
+  paid.slice(0, 8).forEach(e => {
+    h += `<div class="row" data-entry="${esc(e.id)}" style="cursor:pointer">${fcRow(e, `<div style="text-align:right"><div class="amt">${money(num(e.amount))}</div><div class="faint small">${e.paidOn ? shortDate(e.paidOn) : ''}</div></div>`)}</div>`;
+  });
+  $('#f-paid').innerHTML = h + '</div>';
+}
+function markEntries(ids, reimb) {
+  const t = today();
+  ids.forEach(id => {
+    const e = S.entries.find(x => x.id === id); if (!e) return;
+    updateEntry(Object.assign({}, e, {reimb, submittedOn: e.submittedOn || t, paidOn: reimb === 'paid' ? t : ''}));
+  });
+}
+function fcClick(t) {
+  const st = S.settings, m = ym(today());
+  if (t.dataset.fcsel) { F.sel.has(t.dataset.fcsel) ? F.sel.delete(t.dataset.fcsel) : F.sel.add(t.dataset.fcsel); renderFC(); return true; }
+  if (t.id === 'f-selall') { const ids = S.entries.filter(e => e.scope === 'firstchair' && e.type === 'expense' && !e.reimb).map(e => e.id); F.sel = F.sel.size === ids.length ? new Set() : new Set(ids); renderFC(); return true; }
+  if (t.id === 'f-submit-btn') { const n = F.sel.size; markEntries([...F.sel], 'submitted'); F.sel.clear(); toast(`${n} marked as submitted`); render(); return true; }
+  if (t.dataset.fcpaid) { markEntries([t.dataset.fcpaid], 'paid'); toast('marked as paid back'); render(); return true; }
+  if (t.id === 'f-paidall') { const ids = S.entries.filter(e => e.scope === 'firstchair' && e.reimb === 'submitted').map(e => e.id); if (!confirm(`mark all ${ids.length} as paid back?`)) return true; markEntries(ids, 'paid'); toast('all marked as paid back'); render(); return true; }
+  if (t.dataset.fctrip) { const ids = S.entries.filter(e => e.scope === 'firstchair' && e.trip === t.dataset.fctrip && !e.reimb).map(e => e.id); markEntries(ids, 'submitted'); toast(`${t.dataset.fctrip} marked as submitted`); render(); return true; }
+  if (t.dataset.fcbill) {
+    const cur = fcBillStatus(m, t.dataset.fcbill);
+    st.fcBills = Object.assign({}, st.fcBills, {[m]: Object.assign({}, (st.fcBills || {})[m], {[t.dataset.fcbill]: NEXT_REIMB[cur]})});
+    putSettings(); return true;
+  }
+  if (t.dataset.cardpaid) { st.cardPaid = Object.assign({}, st.cardPaid, {[t.dataset.cardpaid]: !(st.cardPaid || {})[t.dataset.cardpaid]}); putSettings(); return true; }
+  if (t.id === 'f-due-save') { const d = parseInt($('#f-due').value); if (!(d >= 1 && d <= 31)) { toast('type a day from 1 to 31'); return true; } st.cardDueDay = d; putSettings(); toast('card due date saved'); return true; }
+  if (t.id === 'f-due-change') { const d = parseInt(prompt('what day of the month is your card due? (1-31)', st.cardDueDay)); if (d >= 1 && d <= 31) { st.cardDueDay = d; putSettings(); } return true; }
+  if (t.id === 'f-add-plat') { openBill(null, {scope: 'firstchair', category: 'software'}); return true; }
+  return false;
+}
+
 // ---------------- routing + render ----------------
 function route() {
   const tab = (location.hash || '#dash').slice(1);
-  const v = ['dash', 'up', 'hist', 'set'].includes(tab) ? tab : 'dash';
+  const v = ['dash', 'up', 'fc', 'hist', 'set'].includes(tab) ? tab : 'dash';
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
   const wide = matchMedia('(min-width:960px)').matches;
   $$('.nav a').forEach(a => a.classList.toggle('on', a.dataset.tab === v || (v === 'set' && a.dataset.tab === 'dash' && !wide)));
@@ -1015,15 +1209,18 @@ function route() {
 }
 function render() {
   const v = (location.hash || '#dash').slice(1);
+  fillTrips();
   if (v === 'hist') renderHist();
   else if (v === 'set') renderSettings();
+  else if (v === 'fc') renderFC();
   else if (v !== 'up') renderDash();
 }
 
 // ---------------- events ----------------
 document.addEventListener('click', ev => {
-  const t = ev.target.closest('button, a, .row, .billrow');
+  const t = ev.target.closest('button, a, .row, .billrow, [data-editbill]');
   if (!t) return;
+  if (t.closest('#v-fc') && fcClick(t)) return;
   if (t.dataset.month) { const [y, m] = S.month.split('-').map(Number); const d = new Date(y, m - 1 + Number(t.dataset.month), 1); S.month = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(); return; }
   if (t.dataset.scope && t.closest('#d-scope')) { S.scope = t.dataset.scope; $$('#d-scope .pill').forEach(p => p.classList.toggle('on', p === t)); render(); return; }
   if (t.dataset.scope && t.closest('#u-scope')) { setUScope(t.dataset.scope); return; }
