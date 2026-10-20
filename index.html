@@ -152,6 +152,52 @@ textarea.in{resize:vertical;min-height:44px}
 .billrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .billrow:first-child{border-top:0}
 .hidden{display:none!important}
+.desk,.nav a.desk{display:none}
+.trend{display:flex;align-items:flex-end;gap:8px;height:48px;margin-top:8px}
+.trend .m{flex:1;display:flex;gap:2px;align-items:flex-end;height:100%}
+.trend .m i{flex:1;border-radius:3px 3px 0 0;min-height:2px}
+.trend-l{display:flex;gap:8px;margin-top:4px}
+.trend-l span{flex:1;text-align:center;font-size:11px;color:var(--ink3)}
+.key{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px}
+
+/* ---------- laptop / web dashboard ---------- */
+@media (min-width:960px){
+  .desk{display:block}
+  .app{max-width:1240px;padding:28px 32px 48px 252px}
+  .nav{top:0;bottom:0;left:0;right:auto;width:220px;padding:26px 16px;border-top:0;border-right:1px solid var(--line);justify-content:flex-start}
+  .nav .in-nav{flex-direction:column;justify-content:flex-start;gap:4px}
+  .nav .brand{display:block;font-size:24px;font-weight:300;letter-spacing:-.02em;padding:0 12px 18px}
+  .nav a{flex-direction:row;gap:10px;font-size:14.5px;padding:10px 12px;border-radius:12px}
+  .nav a svg{width:20px;height:20px}
+  .nav a.on{background:var(--chip)}
+  .nav a[data-tab=up]{order:9;margin-top:14px;background:var(--ink);color:var(--bg1);justify-content:center}
+  .nav a.desk{display:flex}
+  #v-dash.on{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:start}
+  #v-dash>.top{grid-column:1/8;grid-row:1}
+  #v-dash>#d-scope{grid-column:8/13;grid-row:1;justify-content:flex-end;align-self:center}
+  #v-dash>#d-scope+.card{}
+  #d-budget{grid-column:1/4;grid-row:2;align-self:stretch}
+  #v-dash .stats{display:contents}
+  #v-dash .stats>.card:first-child{grid-column:4/7;grid-row:2;align-self:stretch}
+  #v-dash .stats>.card:last-child{grid-column:7/10;grid-row:2;align-self:stretch}
+  #d-savings{grid-column:10/13;grid-row:2;align-self:stretch}
+  #d-trend{grid-column:1/6;grid-row:3;align-self:stretch}
+  #d-cats{grid-column:6/13;grid-row:3}
+  #d-bills{grid-column:1/5;grid-row:4}
+  #d-incomes{grid-column:5/9;grid-row:4}
+  #d-recent{grid-column:9/13;grid-row:4}
+  #v-dash>.sync{grid-column:1/13;grid-row:5}
+  #d-budget .big{font-size:26px}
+  #d-budget .bar.thick,#d-savings .bar.thick{height:7px}
+  .stat .v{font-size:24px;font-weight:400;margin-top:8px}
+  #d-cats .list{display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+  #v-dash .monthnav .iconbtn[href="#set"]{display:none}
+  #v-up.on,#v-hist.on,#v-set.on{max-width:640px}
+  .sheet-bg{align-items:center}
+  .sheet{border-radius:22px;max-height:86vh}
+  .toast{bottom:28px}
+  .row[data-entry]:hover,.billrow:hover{background:var(--chip);border-radius:10px}
+}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
 </head>
@@ -181,7 +227,9 @@ textarea.in{resize:vertical;min-height:44px}
     <div class="card" id="d-bills"></div>
     <div class="card" id="d-cats"></div>
     <div class="card" id="d-savings"></div>
+    <div class="card desk" id="d-trend"></div>
     <div class="card" id="d-incomes"></div>
+    <div class="card desk" id="d-recent"></div>
     <div class="sync" id="sync"><i></i><span>saved on this phone</span></div>
   </section>
 
@@ -294,9 +342,11 @@ textarea.in{resize:vertical;min-height:44px}
 </div>
 
 <nav class="nav"><div class="in-nav">
+  <span class="brand desk">ledger</span>
   <a href="#dash" data-tab="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="2"/><rect x="13" y="4" width="7" height="5" rx="2"/><rect x="13" y="11" width="7" height="9" rx="2"/><rect x="4" y="15" width="7" height="5" rx="2"/></svg>dashboard</a>
   <a href="#up" data-tab="up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>upload</a>
   <a href="#hist" data-tab="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>history</a>
+  <a href="#set" data-tab="set" class="desk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>settings</a>
 </div></nav>
 
 <div class="sheet-bg" id="sheet-bg"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
@@ -528,6 +578,38 @@ function renderDash() {
       <div class="amt good">+${money(num(e.amount))}</div></div>`;
   });
   $('#d-incomes').innerHTML = h + '</div>';
+
+  renderTrend(m);
+
+  // recent expenses (web dashboard)
+  const recent = [...d.variable].sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.created || '').localeCompare(String(a.created || ''))).slice(0, 6);
+  h = `<h2>recent expenses <a class="link" href="#hist" style="font-weight:400">see all</a></h2><div class="list">`;
+  if (!recent.length) h += `<div class="empty">no expenses logged in ${monthName(m)}</div>`;
+  recent.forEach(e => {
+    const flag = e.scope === 'business' && !hasReceipt(e) ? '<span class="tag warn">no receipt</span>' : '';
+    h += `<div class="row" data-entry="${esc(e.id)}" style="cursor:pointer"><div class="l"><span class="faint small" style="width:44px;flex:none">${dayLabel(String(e.date))}</span>
+      <div><div class="name">${esc(e.merchant || e.category)}${flag}</div><div class="faint small">${esc(e.category)}${e.scope === 'business' ? ' · business' : ''}${hasReceipt(e) ? ' · receipt' : ''}</div></div></div>
+      <div class="amt">${money(num(e.amount))}</div></div>`;
+  });
+  $('#d-recent').innerHTML = h + '</div>';
+}
+
+// small spent vs income chart for the 6 months ending on the month being viewed
+function renderTrend(m) {
+  const firstUsed = S.entries.reduce((min, e) => { const k = ym(String(e.date)); return k && k < min ? k : min; }, ym(today()));
+  const months = [];
+  for (let i = 5; i >= 0; i--) { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo - 1 - i, 1); months.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); }
+  const data = months.map(k => {
+    if (k < firstUsed || k > ym(today())) return {k, spent: 0, inc: 0, empty: true};
+    const md = monthData(k); return {k, spent: md.spent, inc: md.incTotal};
+  });
+  const max = Math.max(1, ...data.map(x => Math.max(x.spent, x.inc)));
+  let h = `<h2>last 6 months <span class="faint small" style="font-weight:400"><i class="key" style="background:var(--bar)"></i>spent<i class="key" style="background:var(--good)"></i>income</span></h2><div class="trend">`;
+  data.forEach(x => {
+    h += `<div class="m" title="${monthName(x.k)}: spent ${money(x.spent)}, income ${money(x.inc)}">${x.empty ? '' : `<i style="height:${x.spent / max * 100}%;background:var(--bar)"></i><i style="height:${x.inc / max * 100}%;background:var(--good);opacity:.75"></i>`}</div>`;
+  });
+  h += `</div><div class="trend-l">${data.map(x => `<span${x.k === m ? ' style="color:var(--ink);font-weight:500"' : ''}>${MONTHS[Number(x.k.slice(5, 7)) - 1].slice(0, 3)}</span>`).join('')}</div>`;
+  $('#d-trend').innerHTML = h;
 }
 function ordinal(n) { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
@@ -926,7 +1008,8 @@ function route() {
   const tab = (location.hash || '#dash').slice(1);
   const v = ['dash', 'up', 'hist', 'set'].includes(tab) ? tab : 'dash';
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
-  $$('.nav a').forEach(a => a.classList.toggle('on', a.dataset.tab === v || (v === 'set' && a.dataset.tab === 'dash')));
+  const wide = matchMedia('(min-width:960px)').matches;
+  $$('.nav a').forEach(a => a.classList.toggle('on', a.dataset.tab === v || (v === 'set' && a.dataset.tab === 'dash' && !wide)));
   window.scrollTo(0, 0);
   render();
 }
@@ -1004,6 +1087,7 @@ $('#s-tax').onclick = async () => {
 };
 $('#s-csv').onclick = downloadCsv;
 window.addEventListener('hashchange', route);
+matchMedia('(min-width:960px)').addEventListener?.('change', route);
 window.addEventListener('online', flush);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pull(); });
 
