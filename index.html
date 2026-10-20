@@ -423,8 +423,8 @@ const CATS = {
 };
 const KEYWORDS = {
   'groceries': ['grocery','groceries','trader joe','whole foods','publix','aldi','costco','kroger','safeway','sprouts','wegmans','h-e-b','heb','food lion','fresh market','market'],
-  'dining out': ['restaurant','cafe','café','coffee','starbucks','dunkin','lunch','dinner','breakfast','brunch','pizza','sushi','taco','chipotle','sweetgreen','doordash','uber eats','grubhub','bakery','bar','drinks','mcdonald','chick-fil-a','panera'],
-  'transport': ['uber','lyft','gas','shell','chevron','exxon','mobil','bp','sunoco','wawa','parking','toll','metro','train','bus','taxi','car wash'],
+  'dining out': ['chef','grill','kitchen','taqueria','cantina','restaurant','cafe','café','coffee','starbucks','dunkin','lunch','dinner','breakfast','brunch','pizza','sushi','taco','chipotle','sweetgreen','doordash','uber eats','grubhub','bakery','bar','drinks','mcdonald','chick-fil-a','panera'],
+  'transport': ['towing','tow','uber','lyft','gas','shell','chevron','exxon','mobil','bp','sunoco','wawa','parking','toll','metro','train','bus','taxi','car wash'],
   'shopping': ['amazon','target','walmart','zara','h&m','sephora','ulta','nordstrom','clothes','shoes','mall','etsy','tj maxx','marshalls','homegoods','ikea'],
   'housing': ['rent','mortgage','hoa','landlord'],
   'utilities': ['electric','electricity','water bill','fpl','duke energy','power','gas bill','utility'],
@@ -951,58 +951,89 @@ function bankDate(line) {
   if (!y) { y = t.getFullYear(); if (mo > t.getMonth() + 1) y--; }
   return `${y}-${pad(mo)}-${pad(d)}`;
 }
-const MONEY_RE = /([+\-−–]?)\s?\$?\s?(\d{1,3}(?:,\d{3})+|\d+)[.,](\d{2})(?!\d)/g;
+const MONEY_RE = /([+\-−–—~]?)\s?\$?\s?(\d{1,3}(?:,\d{3})+|\d+)[.,](\d{2})(?!\d)/g;
+const moneyIn = l => [...String(l).matchAll(MONEY_RE)].map(m => ({sign: m[1] === '+' ? '+' : m[1] ? '-' : '', amount: Number(m[2].replace(/,/g, '')) + Number(m[3]) / 100, index: m.index}));
 function cleanMerchant(raw) {
   let m = String(raw).toLowerCase()
+    .replace(/\b(conf(irmation)?\s*#|ref\s*#).*$/g, ' ')
+    .replace(/\bzelle payment (to|from)\b/g, 'zelle $1')
     .replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:,?\s+\d{4})?/g, ' ')
     .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, ' ')
-    .replace(/\b(pending|posted|pos|debit|credit card|purchase|card purchase|recurring|visa|mastercard|ach|web id|ppd id|ref|authorized on|aplpay|apple pay)\b/g, ' ')
+    .replace(/\b(pending|posted|pos|debit|credit card|mobile purchase|card purchase|purchase|recurring|visa|mastercard|ach|web id|ppd id|authorized on|aplpay|apple pay)\b/g, ' ')
     .replace(/^(sq|tst|sp|pp|py|in|dd)\s*\*\s*/g, '').replace(/\b(sq|tst|sp)\s*\*/g, ' ')
     .replace(/[#*]\s*\d+/g, ' ').replace(/\bx{2,}\d+\b/g, ' ').replace(/\b\d{4,}\b/g, ' ')
     .replace(/\.(com|net|io|co)\b/g, '').replace(/[^a-z0-9&' .\-]/g, ' ')
     .replace(/\s+/g, ' ').trim();
   return m.length > 34 ? m.slice(0, 34).replace(/\s\S*$/, '') : m;
 }
+// the store name is what comes before the purchase date / "purchase" / confirmation number
+function nameFromBlock(text) {
+  const t = String(text).replace(MONEY_RE, ' ').replace(/[>›]/g, ' ').replace(/\s+/g, ' ').trim();
+  const cut = t.search(/\b\d{1,2}\/\d{1,2}\b|\bmobile purchase\b|\bpurchase\b|\bconf(irmation)?\s*#/i);
+  return cut > 2 ? t.slice(0, cut) : t;
+}
+const isDateHeader = l => !!bankDate(l) && !moneyIn(l).length && l.replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?|\b(today|yesterday|mon|tue|wed|thu|fri|sat|sun)[a-z]*\b/gi, '').replace(/[^a-z]/gi, '').length <= 2;
+
 function parseBankList(text) {
   const lines = String(text).split(/\n+/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  const skip = /\b(available|current balance|balance|statement|credit limit|minimum payment|due date|total|see all|search|transactions|activity)\b/i;
-  const out = []; let curDate = null, pendingName = '';
-  for (const line of lines) {
-    const amts = [...line.matchAll(MONEY_RE)];
-    const d = bankDate(line);
-    if (!amts.length) {
-      if (d && line.replace(/[^a-z]/gi, '').length <= 14) { curDate = d; continue; }   // a date header like "Oct 18, 2026"
-      if (/[a-z]{3,}/i.test(line) && !skip.test(line) && !/^(pending|posted)$/i.test(line)) pendingName = line;
-      if (d) curDate = d;
-      continue;
+  const skip = /\b(available|current balance|statement|credit limit|minimum payment|due date|see all|search|all transactions|activity)\b/i;
+  const raw = [];
+
+  // layout A: every transaction starts with its own date line (bank of america style).
+  // the signed amount (-$13.18) is the transaction; the grey unsigned amount under it is your balance.
+  const headerIdx = lines.map((l, i) => isDateHeader(l) ? i : -1).filter(i => i >= 0);
+  const blocks = headerIdx.map((h, k) => ({date: bankDate(lines[h]), lines: lines.slice(h + 1, headerIdx[k + 1] ?? lines.length)}));
+  const signedLines = b => b.lines.filter(l => moneyIn(l).some(a => a.sign)).length;
+  const amountLines = b => b.lines.filter(l => moneyIn(l).length).length;
+  const blockStyle = blocks.length >= 2
+    && blocks.every(b => signedLines(b) <= 1 && (signedLines(b) === 1 || amountLines(b) <= 1))
+    && blocks.filter(b => signedLines(b) === 1).length >= blocks.length * 0.6;
+  if (blockStyle) {
+    blocks.forEach(b => {
+      const text = b.lines.join(' ');
+      const amts = moneyIn(text);
+      const pickd = amts.find(a => a.sign) || amts[0];
+      if (!pickd || !pickd.amount) return;
+      const inline = text.match(/\b(\d{1,2})\/(\d{1,2})\b/);
+      raw.push({raw: nameFromBlock(text), full: text, sign: pickd.sign, amount: pickd.amount, date: (inline && bankDate(inline[0])) || b.date || today()});
+    });
+  } else {
+    // layout B: a date header, then one transaction per line (chase / apple card style)
+    let curDate = null, pendingName = '';
+    for (const line of lines) {
+      const amts = moneyIn(line);
+      const d = bankDate(line);
+      if (!amts.length) {
+        if (isDateHeader(line)) { curDate = d; continue; }
+        if (/[a-z]{3,}/i.test(line) && !skip.test(line) && !/^(pending|posted)$/i.test(line)) pendingName = line;
+        continue;
+      }
+      if (skip.test(line) || /\bbalance\b/i.test(line)) { pendingName = ''; continue; }
+      const a = amts.find(x => x.sign) || amts[amts.length - 1];
+      if (!a.amount || a.amount > 50000) continue;
+      let name = line.slice(0, a.index).trim();
+      if (!/[a-z]{2,}/i.test(name)) name = pendingName;
+      pendingName = '';
+      if (!/[a-z]{2,}/i.test(name)) continue;
+      raw.push({raw: name, full: line, sign: a.sign, amount: Math.round(a.amount * 100) / 100, date: d || curDate || today()});
     }
-    if (skip.test(line)) { pendingName = ''; continue; }
-    const a = amts[amts.length - 1];
-    const amount = Number(a[2].replace(/,/g, '')) + Number(a[3]) / 100;
-    if (!amount || amount > 50000) continue;
-    let name = line.slice(0, a.index).trim();
-    if (!/[a-z]{2,}/i.test(name)) name = pendingName;
-    pendingName = '';
-    if (!/[a-z]{2,}/i.test(name)) continue;
-    out.push({raw: name, sign: a[1] ? (a[1] === '+' ? '+' : '-') : '', amount: Math.round(amount * 100) / 100, date: d || curDate || today(), plus: /\+/.test(line.slice(Math.max(0, a.index - 2), a.index + 1))});
   }
-  // some apps show spending as negative numbers, others show credits as negative: go with the majority
-  const neg = out.filter(x => x.sign === '-').length;
-  const negIsSpend = neg > out.length / 2;
-  return out.map(x => {
+
+  // minus means money out, plus means money in. if nothing has a sign, plain amounts are spending.
+  const signed = raw.filter(x => x.sign).length;
+  const minusIsSpend = raw.filter(x => x.sign === '-').length >= raw.filter(x => x.sign === '+').length;
+  return raw.map(x => {
     const merchant = cleanMerchant(x.raw);
-    const low = x.raw.toLowerCase();
-    const isPayment = /\b(payment|thank you|autopay|auto pay|transfer|xfer|online pymt|epay|to savings|from savings|zelle to|venmo cashout)\b/.test(low) && !/\brefund\b/.test(low);
-    const credit = x.plus || (x.sign === '-' && !negIsSpend) || (x.sign === '' && neg > 0 && negIsSpend);
-    const isIncome = !isPayment && (credit || /\b(deposit|payroll|direct dep|refund|interest paid|zelle from|cashback|cash back)\b/.test(low));
-    const type = isIncome ? 'income' : 'expense';
-    // reuse what you picked last time for this store
+    const low = (x.full || x.raw).toLowerCase();
+    const isPayment = /\b(payment to crd|payment to card|card payment|payment thank you|thank you|autopay|auto pay|online pymt|epay|to savings|from savings|transfer to|transfer from|xfer|venmo cashout)\b/.test(low) && !/\brefund\b/.test(low);
+    const moneyInFlag = x.sign === '+' || (signed && x.sign === '-' && !minusIsSpend) || /\b(zelle (payment )?from|direct dep|payroll|deposit|refund|interest paid|cash ?back)\b/.test(low);
+    const type = moneyInFlag && !isPayment ? 'income' : 'expense';
     const prev = [...S.entries].reverse().find(e => e.type === type && e.merchant && e.merchant.toLowerCase() === titleCase(merchant).toLowerCase());
     const category = prev ? prev.category : (guessCategory(merchant, type) || (type === 'income' && /refund/.test(low) ? 'refund' : 'other'));
     const scope = prev ? prev.scope || 'personal' : (guessFC(merchant) ? 'firstchair' : 'personal');
     const dup = S.entries.some(e => e.type === type && Math.abs(num(e.amount) - x.amount) < 0.01 && Math.abs(daysBetween(String(e.date), x.date)) <= 3);
-    return {id: uid(), merchant: titleCase(merchant), amount: x.amount, date: x.date, type, category, scope,
-      note: '', status: isPayment ? 'payment' : dup ? 'dup' : '', on: !isPayment && !dup};
+    return {id: uid(), merchant: titleCase(merchant), amount: Math.round(x.amount * 100) / 100, date: x.date, type, category, scope, note: '',
+      status: isPayment ? 'payment' : dup ? 'dup' : type === 'income' ? 'in' : '', on: !isPayment && !dup && type === 'expense'};
   });
 }
 function guessFC(merchant) {
@@ -1033,7 +1064,7 @@ function renderBank() {
   let h = `<h2>found ${items.length} transaction${items.length === 1 ? '' : 's'} <button class="link" data-bankall="1">${sel.length === items.length ? 'clear' : 'select all'}</button></h2><div>`;
   items.forEach(x => {
     const inc = x.type === 'income';
-    const why = x.status === 'dup' ? ' · already logged' : x.status === 'payment' ? ' · card payment or transfer, skipped' : '';
+    const why = x.status === 'dup' ? ' · already logged' : x.status === 'payment' ? ' · card payment or transfer, skipped' : x.status === 'in' ? ' · money in, not an expense' : '';
     h += `<div class="bank-row ${x.on ? '' : 'off'}"><button class="chk ${x.on ? 'on' : ''}" data-bankon="${x.id}" aria-label="include ${esc(x.merchant)}">${x.on ? CHK : ''}</button>
       <div class="bank-main"><div data-bankopen="${x.id}" style="cursor:pointer"><div style="display:flex;justify-content:space-between;gap:8px"><span class="name">${esc(x.merchant || 'unknown')}</span><span class="amt ${inc ? 'good' : ''}">${inc ? '+' : ''}${money(x.amount)}</span></div>
         <div class="faint small">${shortDate(x.date)} · ${inc ? 'income · ' : ''}${esc(x.category)}${why}</div></div>
