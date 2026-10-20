@@ -93,7 +93,15 @@ button{cursor:pointer;border:0;background:none;padding:0}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--chip);border-radius:12px;padding:3px}
 .seg button{padding:8px;border-radius:9px;font-size:14px;color:var(--ink2)}
 .seg button.on{background:var(--card-solid);color:var(--ink);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.methods{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.methods{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.method{font-size:11.5px!important;padding:12px 2px 10px!important}
+.bank-row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.bank-row:first-child{border-top:0}
+.bank-row.off .bank-main{opacity:.5}
+.bank-main{flex:1;min-width:0}
+.bank-edit{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.bank-edit .in{padding:8px 10px;font-size:15px}
+.pills.tight .pill{padding:4px 10px;font-size:12px}
 .method{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 4px 12px;border-radius:16px;background:var(--card);
   border:1px solid var(--edge);box-shadow:var(--shadow);font-size:12.5px;-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px)}
 .method svg{width:24px;height:24px}
@@ -256,11 +264,15 @@ button.pill-s{cursor:pointer}
     <div class="methods">
       <button class="method" data-method="receipt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>receipt</button>
       <button class="method" data-method="screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9.5" r="1.6"/><path d="M20 15l-4.5-4.5L6 20"/></svg>screenshot</button>
+      <button class="method" data-method="bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg>bank</button>
       <button class="method" data-method="type"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"/></svg>type</button>
       <button class="method" data-method="voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>voice</button>
     </div>
     <input type="file" accept="image/*" capture="environment" id="f-camera" class="sr">
     <input type="file" accept="image/*" id="f-library" class="sr">
+    <input type="file" accept="image/*" id="f-bank" class="sr">
+
+    <div class="card hidden" id="u-bank" style="display:flex;flex-direction:column;gap:8px"></div>
 
     <div class="card voice hidden" id="u-voice">
       <button class="mic" id="mic" aria-label="start talking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
@@ -277,7 +289,7 @@ button.pill-s{cursor:pointer}
       <div class="thumb"><img id="u-receipt-img" alt="receipt"><div style="flex:1;min-width:0"><div class="status" id="u-ocr"></div><button class="link" id="u-receipt-x" style="margin-top:6px">remove photo</button></div></div>
     </div>
 
-    <div class="card" style="display:flex;flex-direction:column;gap:12px">
+    <div class="card" id="u-form" style="display:flex;flex-direction:column;gap:12px">
       <div class="amountbox"><label class="f" for="u-amount" style="text-align:center;margin:0">amount</label>
         <input id="u-amount" inputmode="decimal" placeholder="$0.00" autocomplete="off"></div>
       <div><label class="f" for="u-merchant" id="u-merchant-l">store</label><input class="in" id="u-merchant" autocomplete="off" placeholder="target"></div>
@@ -701,12 +713,21 @@ function setMethod(m) {
   U.method = m;
   $$('.method').forEach(b => b.classList.toggle('on', b.dataset.method === m));
   $('#u-voice').classList.toggle('hidden', m !== 'voice');
+  setBankMode(m === 'bank');
+  if (m === 'bank') $('#f-bank').click();
   if (m === 'receipt') $('#f-camera').click();
   if (m === 'screenshot') $('#f-library').click();
   if (m === 'type') { $('#u-quick').focus(); }
   if (m === 'voice') { /* wait for mic tap */ }
 }
+function setBankMode(on) {
+  ['#u-quick-wrap', '#u-form', '#u-type'].forEach(sel => $(sel).classList.toggle('hidden', on));
+  if (on) $('#u-receipt').classList.add('hidden');
+  $('#u-bank').classList.toggle('hidden', !on);
+  if (!on) { B.items = []; $('#u-bank').innerHTML = ''; }
+}
 function resetUpload() {
+  setBankMode(false);
   ['#u-amount', '#u-merchant', '#u-note', '#u-quick', '#u-trip'].forEach(s => $(s).value = '');
   $('#u-date').value = today();
   U.cat = null; U.receipt = null; U.method = null;
@@ -895,6 +916,151 @@ async function handleImage(file, method) {
     st.textContent = 'couldn’t read it, type the amount below. the photo still gets saved';
   } finally { U.ocrBusy = false; }
 }
+
+// ---------------- bank screenshot import ----------------
+// reads a screenshot of a bank or card app's transaction list and turns each line into an entry to review
+const B = {items: [], open: null};
+const MON3 = MONTHS.map(m => m.slice(0, 3));
+function bankDate(line) {
+  const l = line.toLowerCase(), t = new Date();
+  if (/\btoday\b/.test(l)) return today();
+  if (/\byesterday\b/.test(l)) { const d = new Date(); d.setDate(d.getDate() - 1); return isoDay(d); }
+  let m = l.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/);
+  let mo, d, y;
+  if (m) { mo = MON3.indexOf(m[1].slice(0, 3)) + 1; d = Number(m[2]); y = m[3] ? Number(m[3]) : null; }
+  else if ((m = l.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))) { mo = Number(m[1]); d = Number(m[2]); y = m[3] ? Number(m[3].length === 2 ? '20' + m[3] : m[3]) : null; }
+  else return null;
+  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31)) return null;
+  if (!y) { y = t.getFullYear(); if (mo > t.getMonth() + 1) y--; }
+  return `${y}-${pad(mo)}-${pad(d)}`;
+}
+const MONEY_RE = /([+\-−–]?)\s?\$?\s?(\d{1,3}(?:,\d{3})+|\d+)[.,](\d{2})(?!\d)/g;
+function cleanMerchant(raw) {
+  let m = String(raw).toLowerCase()
+    .replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:,?\s+\d{4})?/g, ' ')
+    .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, ' ')
+    .replace(/\b(pending|posted|pos|debit|credit card|purchase|card purchase|recurring|visa|mastercard|ach|web id|ppd id|ref|authorized on|aplpay|apple pay)\b/g, ' ')
+    .replace(/^(sq|tst|sp|pp|py|in|dd)\s*\*\s*/g, '').replace(/\b(sq|tst|sp)\s*\*/g, ' ')
+    .replace(/[#*]\s*\d+/g, ' ').replace(/\bx{2,}\d+\b/g, ' ').replace(/\b\d{4,}\b/g, ' ')
+    .replace(/\.(com|net|io|co)\b/g, '').replace(/[^a-z0-9&' .\-]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  return m.length > 34 ? m.slice(0, 34).replace(/\s\S*$/, '') : m;
+}
+function parseBankList(text) {
+  const lines = String(text).split(/\n+/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const skip = /\b(available|current balance|balance|statement|credit limit|minimum payment|due date|total|see all|search|transactions|activity)\b/i;
+  const out = []; let curDate = null, pendingName = '';
+  for (const line of lines) {
+    const amts = [...line.matchAll(MONEY_RE)];
+    const d = bankDate(line);
+    if (!amts.length) {
+      if (d && line.replace(/[^a-z]/gi, '').length <= 14) { curDate = d; continue; }   // a date header like "Oct 18, 2026"
+      if (/[a-z]{3,}/i.test(line) && !skip.test(line) && !/^(pending|posted)$/i.test(line)) pendingName = line;
+      if (d) curDate = d;
+      continue;
+    }
+    if (skip.test(line)) { pendingName = ''; continue; }
+    const a = amts[amts.length - 1];
+    const amount = Number(a[2].replace(/,/g, '')) + Number(a[3]) / 100;
+    if (!amount || amount > 50000) continue;
+    let name = line.slice(0, a.index).trim();
+    if (!/[a-z]{2,}/i.test(name)) name = pendingName;
+    pendingName = '';
+    if (!/[a-z]{2,}/i.test(name)) continue;
+    out.push({raw: name, sign: a[1] ? (a[1] === '+' ? '+' : '-') : '', amount: Math.round(amount * 100) / 100, date: d || curDate || today(), plus: /\+/.test(line.slice(Math.max(0, a.index - 2), a.index + 1))});
+  }
+  // some apps show spending as negative numbers, others show credits as negative: go with the majority
+  const neg = out.filter(x => x.sign === '-').length;
+  const negIsSpend = neg > out.length / 2;
+  return out.map(x => {
+    const merchant = cleanMerchant(x.raw);
+    const low = x.raw.toLowerCase();
+    const isPayment = /\b(payment|thank you|autopay|auto pay|transfer|xfer|online pymt|epay|to savings|from savings|zelle to|venmo cashout)\b/.test(low) && !/\brefund\b/.test(low);
+    const credit = x.plus || (x.sign === '-' && !negIsSpend) || (x.sign === '' && neg > 0 && negIsSpend);
+    const isIncome = !isPayment && (credit || /\b(deposit|payroll|direct dep|refund|interest paid|zelle from|cashback|cash back)\b/.test(low));
+    const type = isIncome ? 'income' : 'expense';
+    // reuse what you picked last time for this store
+    const prev = [...S.entries].reverse().find(e => e.type === type && e.merchant && e.merchant.toLowerCase() === titleCase(merchant).toLowerCase());
+    const category = prev ? prev.category : (guessCategory(merchant, type) || (type === 'income' && /refund/.test(low) ? 'refund' : 'other'));
+    const scope = prev ? prev.scope || 'personal' : (guessFC(merchant) ? 'firstchair' : 'personal');
+    const dup = S.entries.some(e => e.type === type && Math.abs(num(e.amount) - x.amount) < 0.01 && Math.abs(daysBetween(String(e.date), x.date)) <= 3);
+    return {id: uid(), merchant: titleCase(merchant), amount: x.amount, date: x.date, type, category, scope,
+      note: '', status: isPayment ? 'payment' : dup ? 'dup' : '', on: !isPayment && !dup};
+  });
+}
+function guessFC(merchant) {
+  const m = merchant.toLowerCase();
+  return S.settings.bills.some(b => b.scope === 'firstchair' && m.includes(String(b.name).toLowerCase()))
+    || S.entries.some(e => e.scope === 'firstchair' && e.merchant && m.includes(e.merchant.toLowerCase()));
+}
+async function handleBank(file) {
+  if (!file) return;
+  setBankMode(true);
+  const box = $('#u-bank');
+  box.innerHTML = '<div class="status"><span class="spin"></span><span>reading your transactions…</span></div>';
+  try {
+    const {canvas} = await shrink(file, 2200, 0.85);
+    const T = await loadTesseract();
+    const {data} = await T.recognize(canvas, 'eng', {logger: m => { if (m.status === 'recognizing text' && box.querySelector('.status')) box.querySelector('.status').lastChild.textContent = `reading your transactions… ${Math.round(m.progress * 100)}%`; }});
+    B.items = parseBankList(data.text);
+    B.open = null;
+    renderBank();
+  } catch (e) {
+    box.innerHTML = '<div class="muted small">couldn’t read that screenshot. try again, or crop it to just the list of transactions.</div><button class="btn ghost small" data-bankagain="1">pick another screenshot</button>';
+  }
+}
+function renderBank() {
+  const box = $('#u-bank'), items = B.items;
+  if (!items.length) { box.innerHTML = '<div class="muted small">no transactions found. crop the screenshot to just the list of transactions and try again.</div><button class="btn ghost small" data-bankagain="1">pick another screenshot</button>'; return; }
+  const sel = items.filter(x => x.on);
+  let h = `<h2>found ${items.length} transaction${items.length === 1 ? '' : 's'} <button class="link" data-bankall="1">${sel.length === items.length ? 'clear' : 'select all'}</button></h2><div>`;
+  items.forEach(x => {
+    const inc = x.type === 'income';
+    const why = x.status === 'dup' ? ' · already logged' : x.status === 'payment' ? ' · card payment or transfer, skipped' : '';
+    h += `<div class="bank-row ${x.on ? '' : 'off'}"><button class="chk ${x.on ? 'on' : ''}" data-bankon="${x.id}" aria-label="include ${esc(x.merchant)}">${x.on ? CHK : ''}</button>
+      <div class="bank-main"><div data-bankopen="${x.id}" style="cursor:pointer"><div style="display:flex;justify-content:space-between;gap:8px"><span class="name">${esc(x.merchant || 'unknown')}</span><span class="amt ${inc ? 'good' : ''}">${inc ? '+' : ''}${money(x.amount)}</span></div>
+        <div class="faint small">${shortDate(x.date)} · ${inc ? 'income · ' : ''}${esc(x.category)}${why}</div></div>
+        ${!inc ? `<div class="pills tight" style="margin-top:6px">${SCOPES.map(([v, l]) => `<button class="pill ${x.scope === v ? 'on' : ''}" data-bankscope="${x.id}|${v}">${l}</button>`).join('')}</div>` : ''}
+        ${B.open === x.id ? `<div class="bank-edit">
+          <input class="in" data-bankf="${x.id}|merchant" value="${esc(x.merchant)}" placeholder="store">
+          <input class="in" data-bankf="${x.id}|amount" inputmode="decimal" value="${x.amount.toFixed(2)}">
+          <input class="in" type="date" data-bankf="${x.id}|date" value="${x.date}">
+          <select class="in" data-bankf="${x.id}|category">${catOptions(x.type, x.category)}</select>
+          <select class="in" data-bankf="${x.id}|type"><option value="expense" ${!inc ? 'selected' : ''}>expense</option><option value="income" ${inc ? 'selected' : ''}>income</option></select>
+          <button class="btn ghost small" style="margin:0" data-bankopen="${x.id}">done</button></div>` : ''}
+      </div></div>`;
+  });
+  h += `</div><button class="btn" data-bankadd="1" ${sel.length ? '' : 'disabled'}>add ${sel.length} transaction${sel.length === 1 ? '' : 's'}</button>
+    <div class="faint small" style="text-align:center">tap a row to fix the name, date or amount first</div>
+    <button class="link" data-bankagain="1" style="align-self:center">use a different screenshot</button>`;
+  box.innerHTML = h;
+}
+function bankClick(t) {
+  const find = id => B.items.find(x => x.id === id);
+  if (t.dataset.bankon) { const x = find(t.dataset.bankon); x.on = !x.on; renderBank(); return true; }
+  if (t.dataset.bankall) { const all = B.items.every(x => x.on); B.items.forEach(x => x.on = !all); renderBank(); return true; }
+  if (t.dataset.bankscope) { const [id, v] = t.dataset.bankscope.split('|'); find(id).scope = v; renderBank(); return true; }
+  if (t.dataset.bankopen) { B.open = B.open === t.dataset.bankopen ? null : t.dataset.bankopen; renderBank(); return true; }
+  if (t.dataset.bankagain) { $('#f-bank').click(); return true; }
+  if (t.dataset.bankadd) {
+    const sel = B.items.filter(x => x.on && x.amount > 0);
+    if (!sel.length) { toast('pick at least one'); return true; }
+    const now = new Date().toISOString();
+    sel.forEach(x => addEntry({id: uid(), date: x.date, type: x.type, amount: x.amount, category: x.category || 'other', merchant: x.merchant, scope: x.type === 'income' ? 'personal' : x.scope,
+      note: '', source: 'bank', receiptId: '', receiptUrl: '', created: now, reimb: '', submittedOn: '', paidOn: '', trip: ''}));
+    toast(`${sel.length} transaction${sel.length === 1 ? '' : 's'} added`);
+    resetUpload(); render();
+    return true;
+  }
+  return false;
+}
+$('#u-bank').addEventListener('change', ev => {
+  const f = ev.target.dataset.bankf; if (!f) return;
+  const [id, key] = f.split('|'), x = B.items.find(i => i.id === id); if (!x) return;
+  x[key] = key === 'amount' ? num(ev.target.value) : ev.target.value;
+  if (key === 'type' && !CATS[x.type].includes(x.category)) x.category = 'other';
+  if (key === 'type' || key === 'category') renderBank();
+});
 
 // ---------------- voice ----------------
 let rec = null;
@@ -1218,9 +1384,10 @@ function render() {
 
 // ---------------- events ----------------
 document.addEventListener('click', ev => {
-  const t = ev.target.closest('button, a, .row, .billrow, [data-editbill]');
+  const t = ev.target.closest('button, a, .row, .billrow, [data-editbill], [data-bankopen]');
   if (!t) return;
   if (t.closest('#v-fc') && fcClick(t)) return;
+  if (t.closest('#u-bank') && bankClick(t)) return;
   if (t.dataset.month) { const [y, m] = S.month.split('-').map(Number); const d = new Date(y, m - 1 + Number(t.dataset.month), 1); S.month = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(); return; }
   if (t.dataset.scope && t.closest('#d-scope')) { S.scope = t.dataset.scope; $$('#d-scope .pill').forEach(p => p.classList.toggle('on', p === t)); render(); return; }
   if (t.dataset.scope && t.closest('#u-scope')) { setUScope(t.dataset.scope); return; }
@@ -1240,6 +1407,7 @@ document.addEventListener('click', ev => {
   if (t.id === 'add-saving') { openSaving(); return; }
 });
 $('#f-camera').addEventListener('change', e => { handleImage(e.target.files[0], 'receipt'); e.target.value = ''; });
+$('#f-bank').addEventListener('change', e => { handleBank(e.target.files[0]); e.target.value = ''; });
 $('#f-library').addEventListener('change', e => { handleImage(e.target.files[0], 'screenshot'); e.target.value = ''; });
 $('#u-receipt-x').onclick = () => { U.receipt = null; $('#u-receipt').classList.add('hidden'); };
 $('#mic').onclick = startVoice;
