@@ -407,7 +407,7 @@ const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate
 const today = () => isoDay(new Date());
 const ym = d => d.slice(0, 7);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const APP_VERSION = 'oct 20 · v6';
+const APP_VERSION = 'oct 20 · v7';
 const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 const monthName = m => MONTHS[Number(m.slice(5, 7)) - 1] + (m.slice(0, 4) !== String(new Date().getFullYear()) ? ' ' + m.slice(0, 4) : '');
 const dayLabel = d => { const t = today(); if (d === t) return 'today'; const y = new Date(); y.setDate(y.getDate() - 1); if (d === isoDay(y)) return 'yesterday'; const [Y, M, D] = d.split('-'); return `${MONTHS[M - 1].slice(0, 3)} ${Number(D)}`; };
@@ -592,7 +592,7 @@ function renderDash() {
   [...d.bills].sort((a, b) => num(a.day) - num(b.day)).forEach(b => {
     const on = paid.includes(b.id);
     h += `<div class="row"><div class="l"><button class="tick ${on ? 'on' : ''}" data-bill="${esc(b.id)}" aria-label="mark ${esc(b.name)} paid">${on ? CHECK : ''}</button>
-      <div><div class="name">${esc(b.name)}</div><div class="faint small">${b.day ? 'due the ' + ordinal(num(b.day)) + ' · ' : ''}${esc(b.category || 'other')}${scopeTag(b.scope)}</div></div></div>
+      <div><div class="name">${esc(b.name)}${!on && billDue(b, m) < today() ? '<span class="tag warn">past due</span>' : ''}</div><div class="faint small">due ${shortDate(billDue(b, m))} · ${esc(b.category || 'other')}${scopeTag(b.scope)}</div></div></div>
       <div class="amt">${money(num(b.amount))}</div></div>`;
   });
   $('#d-bills').innerHTML = h + '</div>';
@@ -676,6 +676,11 @@ function openCategory(cat) {
       : `<div class="row" data-entry="${esc(i.e.id)}" style="cursor:pointer"><div class="l"><span class="faint small" style="width:44px;flex:none">${dayLabel(i.date)}</span><div><div class="name">${esc(i.e.merchant || cat)}${hasReceipt(i.e) ? '' : i.e.scope === 'business' ? '<span class="tag warn">no receipt</span>' : ''}</div><div class="faint small">${esc(i.e.source === 'bank' ? 'from bank' : i.e.source || '')}${scopeTag(i.e.scope)}${i.e.note ? ' · ' + esc(i.e.note) : ''}</div></div></div><div class="amt">${money(i.amount)}</div></div>`).join('')}</div>
     <button class="btn ghost" id="cat-close">close</button>`);
   $('#cat-close').onclick = closeSheet;
+}
+// the date a monthly bill falls on in a given month (yyyy-mm), e.g. the 31st becomes oct 31 / nov 30
+function billDue(b, month) {
+  const [y, mo] = month.split('-').map(Number);
+  return `${month}-${pad(Math.min(num(b.day) || 1, new Date(y, mo, 0).getDate()))}`;
 }
 function ordinal(n) { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
@@ -1242,7 +1247,7 @@ function openBill(id, preset) {
     ${isNew ? '' : '<button class="btn danger" id="b-del">remove bill</button>'}`);
   $('#b-name').addEventListener('input', () => { const c = guessCategory($('#b-name').value, 'expense'); if (c) $('#b-cat').value = c; });
   $('#b-save').onclick = () => {
-    const nb = {id: b.id, name: $('#b-name').value.trim(), amount: num($('#b-amount').value), day: Math.min(31, Math.max(0, parseInt($('#b-day').value) || 0)) || '', category: $('#b-cat').value, scope: $('#b-scope').value};
+    const nb = {id: b.id, since: b.since || ym(today()), name: $('#b-name').value.trim(), amount: num($('#b-amount').value), day: Math.min(31, Math.max(0, parseInt($('#b-day').value) || 0)) || '', category: $('#b-cat').value, scope: $('#b-scope').value};
     if (!nb.name || !nb.amount) { toast('add a name and amount'); return; }
     S.settings.bills = isNew ? [...S.settings.bills, nb] : S.settings.bills.map(x => x.id === nb.id ? nb : x);
     putSettings(); closeSheet(); toast('bill saved');
@@ -1277,7 +1282,7 @@ function renderSettings() {
     $('#s-key').value = S.conn.key;
   }
   $('#s-bills').innerHTML = st.bills.length ? [...st.bills].sort((a, b) => num(a.day) - num(b.day)).map(b => `
-    <div class="billrow" data-editbill="${esc(b.id)}" style="cursor:pointer"><div><div>${esc(b.name)}</div><div class="faint small">${b.day ? 'due the ' + ordinal(num(b.day)) + ' · ' : ''}${esc(b.category)}${scopeTag(b.scope)}</div></div><div class="amt">${money(num(b.amount))}</div></div>`).join('')
+    <div class="billrow" data-editbill="${esc(b.id)}" style="cursor:pointer"><div><div>${esc(b.name)}</div><div class="faint small">${b.day ? 'due the ' + ordinal(num(b.day)) + ' of every month · ' : ''}${esc(b.category)}${scopeTag(b.scope)}</div></div><div class="amt">${money(num(b.amount))}</div></div>`).join('')
     : '<div class="empty">no fixed bills yet</div>';
   const years = [...new Set([new Date().getFullYear(), ...S.entries.map(e => Number(String(e.date).slice(0, 4))).filter(Boolean)])].sort((a, b) => b - a);
   const cur = $('#s-year').value;
@@ -1318,12 +1323,22 @@ function renderFC() {
   const t = today(), m = ym(t), st = S.settings;
   const fc = S.entries.filter(e => e.scope === 'firstchair' && e.type === 'expense');
   const bills = st.bills.filter(b => b.scope === 'firstchair').sort((a, b) => num(a.day) - num(b.day));
-  const charged = bills.filter(b => !b.day || num(b.day) <= Number(t.slice(8)));
+  // one charge per platform per month, from the month it was added. older months stay until they're paid back.
+  const firstKey = Object.keys(st.fcBills || {}).sort()[0] || m;
+  const monthsFrom = start => { const out = []; let [y, mo] = String(start).split('-').map(Number); for (let i = 0; i < 36 && `${y}-${pad(mo)}` <= m; i++) { out.push(`${y}-${pad(mo)}`); if (++mo > 12) { mo = 1; y++; } } return out; };
+  const billItems = [];
+  bills.forEach(b => monthsFrom(b.since && b.since < firstKey ? b.since : (b.since || firstKey)).forEach(k => {
+    const date = billDue(b, k), status = fcBillStatus(k, b.id);
+    if (k < m && status === 'paid') return;
+    billItems.push({b, k, date, status, future: date > t});
+  }));
+  billItems.sort((a, c) => c.date.localeCompare(a.date));
+  const charged = billItems.filter(i => !i.future);
   const toSubmit = fc.filter(e => !e.reimb).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const waiting = fc.filter(e => e.reimb === 'submitted').sort((a, b) => String(a.submittedOn).localeCompare(String(b.submittedOn)));
   const paid = fc.filter(e => e.reimb === 'paid').sort((a, b) => String(b.paidOn).localeCompare(String(a.paidOn)));
   const tot = a => a.reduce((x, e) => x + num(e.amount), 0);
-  const billTot = s => charged.filter(b => fcBillStatus(m, b.id) === s).reduce((x, b) => x + num(b.amount), 0);
+  const billTot = s => charged.filter(i => i.status === s).reduce((x, i) => x + num(i.b.amount), 0);
   const tsTot = tot(toSubmit) + billTot(''), wTot = tot(waiting) + billTot('submitted');
   const pMonth = paid.filter(e => ym(String(e.paidOn)) === m), pTot = tot(pMonth) + billTot('paid');
   F.sel = new Set([...F.sel].filter(id => toSubmit.some(e => e.id === id)));
@@ -1335,8 +1350,8 @@ function renderFC() {
   // totals
   const oldest = waiting[0] && waiting[0].submittedOn;
   $('#f-stats').innerHTML = `
-    <div class="card"><div class="muted small">to submit</div><div class="v" style="color:var(--warn)">${moneyShort(tsTot)}</div><div class="faint small">${toSubmit.length + charged.filter(b => !fcBillStatus(m, b.id)).length} items</div></div>
-    <div class="card"><div class="muted small">waiting</div><div class="v" style="color:var(--bar)">${moneyShort(wTot)}</div><div class="faint small">${oldest ? 'sent ' + shortDate(oldest) : 'nothing out'}</div></div>
+    <div class="card"><div class="muted small">to submit</div><div class="v" style="color:var(--warn)">${moneyShort(tsTot)}</div><div class="faint small">${(n => n + (n === 1 ? ' item' : ' items'))(toSubmit.length + charged.filter(i => !i.status).length)}</div></div>
+    <div class="card"><div class="muted small">waiting</div><div class="v" style="color:var(--bar)">${moneyShort(wTot)}</div><div class="faint small">${oldest ? 'sent ' + shortDate(oldest) : wTot ? 'platform charges' : 'nothing out'}</div></div>
     <div class="card"><div class="muted small">paid back</div><div class="v good">${moneyShort(pTot)}</div><div class="faint small">in ${MONTHS[Number(m.slice(5)) - 1]}</div></div>`;
 
   // credit card due date
@@ -1358,11 +1373,9 @@ function renderFC() {
   // monthly platforms
   h = `<h2>platforms every month <span class="r">${money(bills.reduce((x, b) => x + num(b.amount), 0))}</span></h2><div class="list">`;
   if (!bills.length) h += `<div class="empty">add the platforms you pay for first chair, like capcut or manychat.<br><button class="link" id="f-add-plat">add a platform</button></div>`;
-  bills.forEach(b => {
-    const due = b.day && num(b.day) > Number(t.slice(8));
-    const stt = fcBillStatus(m, b.id);
-    h += `<div class="row"><div class="l"><div><div class="name" data-editbill="${esc(b.id)}" style="cursor:pointer">${esc(b.name)}</div><div class="faint small">${money(num(b.amount))}${b.day ? ' · charges the ' + ordinal(num(b.day)) : ''}</div></div></div>
-      ${due ? '<span class="pill-s">not charged yet</span>' : `<button class="pill-s ${REIMB[stt][1]}" data-fcbill="${esc(b.id)}" title="tap to change">${REIMB[stt][0]}</button>`}</div>`;
+  billItems.forEach(({b, k, date, status, future}) => {
+    h += `<div class="row"><div class="l"><div><div class="name" data-editbill="${esc(b.id)}" style="cursor:pointer">${esc(b.name)}${k < m ? `<span class="tag warn">${MONTHS[Number(k.slice(5)) - 1]}</span>` : ''}</div><div class="faint small">${money(num(b.amount))} · ${future ? 'charges' : 'charged'} ${shortDate(date)}</div></div></div>
+      ${future ? '<span class="pill-s">not charged yet</span>' : `<button class="pill-s ${REIMB[status][1]}" data-fcbill="${esc(b.id)}|${k}" title="tap to change">${REIMB[status][0]}</button>`}</div>`;
   });
   if (bills.length) h += `<div class="faint small" style="margin-top:6px">tap a status to move it along. <button class="link" id="f-add-plat" style="font-size:12px">add a platform</button></div>`;
   $('#f-plat').innerHTML = h + '</div>';
@@ -1426,8 +1439,9 @@ function fcClick(t) {
   if (t.id === 'f-paidall') { const ids = S.entries.filter(e => e.scope === 'firstchair' && e.reimb === 'submitted').map(e => e.id); if (!confirm(`mark all ${ids.length} as paid back?`)) return true; markEntries(ids, 'paid'); toast('all marked as paid back'); render(); return true; }
   if (t.dataset.fctrip) { const ids = S.entries.filter(e => e.scope === 'firstchair' && e.trip === t.dataset.fctrip && !e.reimb).map(e => e.id); markEntries(ids, 'submitted'); toast(`${t.dataset.fctrip} marked as submitted`); render(); return true; }
   if (t.dataset.fcbill) {
-    const cur = fcBillStatus(m, t.dataset.fcbill);
-    st.fcBills = Object.assign({}, st.fcBills, {[m]: Object.assign({}, (st.fcBills || {})[m], {[t.dataset.fcbill]: NEXT_REIMB[cur]})});
+    const [id, k] = t.dataset.fcbill.split('|');
+    const cur = fcBillStatus(k, id);
+    st.fcBills = Object.assign({}, st.fcBills, {[k]: Object.assign({}, (st.fcBills || {})[k], {[id]: NEXT_REIMB[cur]})});
     putSettings(); return true;
   }
   if (t.dataset.cardpaid) { st.cardPaid = Object.assign({}, st.cardPaid, {[t.dataset.cardpaid]: !(st.cardPaid || {})[t.dataset.cardpaid]}); putSettings(); return true; }
