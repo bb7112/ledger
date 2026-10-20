@@ -376,7 +376,7 @@ button.pill-s{cursor:pointer}
     </div>
 
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <h2>backup</h2>
+      <h2>backup <span class="faint small" style="font-weight:400" id="s-version"></span></h2>
       <button class="btn ghost" id="s-csv">download everything as a csv</button>
     </div>
   </section>
@@ -407,6 +407,7 @@ const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate
 const today = () => isoDay(new Date());
 const ym = d => d.slice(0, 7);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const APP_VERSION = 'oct 20 · v6';
 const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 const monthName = m => MONTHS[Number(m.slice(5, 7)) - 1] + (m.slice(0, 4) !== String(new Date().getFullYear()) ? ' ' + m.slice(0, 4) : '');
 const dayLabel = d => { const t = today(); if (d === t) return 'today'; const y = new Date(); y.setDate(y.getDate() - 1); if (d === isoDay(y)) return 'yesterday'; const [Y, M, D] = d.split('-'); return `${MONTHS[M - 1].slice(0, 3)} ${Number(D)}`; };
@@ -916,8 +917,9 @@ async function handleImage(file, method) {
   U.method = method;
   $$('.method').forEach(b => b.classList.toggle('on', b.dataset.method === method));
   $('#u-voice').classList.add('hidden');
-  const {canvas, dataUrl} = await shrink(file);
-  U.receipt = dataUrl;
+  // screenshots are small text, so read them at full sharpness; the saved copy stays small
+  const {canvas, dataUrl} = await shrink(file, method === 'screenshot' ? 2200 : 1600);
+  U.receipt = method === 'screenshot' ? (await shrink(file)).dataUrl : dataUrl;
   $('#u-receipt-img').src = dataUrl;
   $('#u-receipt').classList.remove('hidden');
   const st = $('#u-ocr');
@@ -926,6 +928,17 @@ async function handleImage(file, method) {
   try {
     const T = await loadTesseract();
     const {data} = await T.recognize(canvas, 'eng', {logger: m => { if (m.status === 'recognizing text') st.lastChild.textContent = `reading the total… ${Math.round(m.progress * 100)}%`; }});
+    // a screenshot of a bank's transaction list goes to the bank reader instead
+    if (method === 'screenshot') {
+      const list = parseBankList(data.text);
+      if (list.length >= 2 && moneyIn(data.text).filter(a => a.sign).length >= 2) {
+        U.receipt = null; $('#u-receipt').classList.add('hidden');
+        U.method = 'bank'; $$('.method').forEach(b => b.classList.toggle('on', b.dataset.method === 'bank'));
+        setBankMode(true); B.items = list; B.open = null; renderBank();
+        toast('that looks like a bank list, so it’s using the bank reader');
+        return;
+      }
+    }
     const p = parseReceipt(data.text);
     applyParsed(Object.assign({type: undefined}, p), {force: true});
     st.textContent = p.amount ? 'filled in, check it and save' : 'couldn’t find the total, type it in below';
@@ -985,14 +998,27 @@ function parseBankList(text) {
   const blocks = headerIdx.map((h, k) => ({date: bankDate(lines[h]), lines: lines.slice(h + 1, headerIdx[k + 1] ?? lines.length)}));
   const signedLines = b => b.lines.filter(l => moneyIn(l).some(a => a.sign)).length;
   const amountLines = b => b.lines.filter(l => moneyIn(l).length).length;
-  const blockStyle = blocks.length >= 2
-    && blocks.every(b => signedLines(b) <= 1 && (signedLines(b) === 1 || amountLines(b) <= 1))
-    && blocks.filter(b => signedLines(b) === 1).length >= blocks.length * 0.6;
+  // running balance check: in this layout each block is [charge, balance after it], and
+  // two neighbouring balances differ by exactly one of the charges, even when a minus sign gets misread
+  const bAmts = blocks.map(b => moneyIn(b.lines.join(' ')));
+  let pairs = 0, hits = 0;
+  for (let i = 0; i + 1 < bAmts.length; i++) {
+    const a = bAmts[i], c = bAmts[i + 1];
+    if (a.length !== 2 || c.length !== 2) continue;
+    pairs++;
+    const diff = Math.abs(c[1].amount - a[1].amount);
+    if (Math.abs(diff - a[0].amount) < 0.02 || Math.abs(diff - c[0].amount) < 0.02) hits++;
+  }
+  const runningBalance = pairs > 0 && hits >= Math.max(1, pairs * 0.3)
+    && bAmts.filter(a => a.length >= 1 && a.length <= 2).length >= blocks.length * 0.8;
+  const blockStyle = blocks.length >= 2 && (runningBalance || (
+    blocks.every(b => signedLines(b) <= 1 && (signedLines(b) === 1 || amountLines(b) <= 1))
+    && blocks.filter(b => signedLines(b) === 1).length >= blocks.length * 0.6));
   if (blockStyle) {
     blocks.forEach(b => {
       const text = b.lines.join(' ');
       const amts = moneyIn(text);
-      const pickd = amts.find(a => a.sign) || amts[0];
+      const pickd = amts.find(a => a.sign) || amts[0];   // the charge comes first; anything after it is the balance
       if (!pickd || !pickd.amount) return;
       const inline = text.match(/\b(\d{1,2})\/(\d{1,2})\b/);
       raw.push({raw: nameFromBlock(text), full: text, sign: pickd.sign, amount: pickd.amount, date: (inline && bankDate(inline[0])) || b.date || today()});
@@ -1500,6 +1526,7 @@ $('#s-tax').onclick = async () => {
   finally { btn.disabled = false; }
 };
 $('#s-csv').onclick = downloadCsv;
+$('#s-version').textContent = 'app version ' + APP_VERSION;
 window.addEventListener('hashchange', route);
 matchMedia('(min-width:960px)').addEventListener?.('change', route);
 window.addEventListener('online', flush);
@@ -1511,7 +1538,14 @@ setUType('expense');
 route();
 setSync(connected() ? 'wait' : 'local');
 pull();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).then(reg => {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+  // when a new version takes over, reload once so you see it straight away
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+}
 </script>
 </body>
 </html>
