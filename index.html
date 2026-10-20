@@ -85,7 +85,8 @@ button{cursor:pointer;border:0;background:none;padding:0}
 .tick{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--ink3);display:grid;place-items:center;flex:none}
 .tick.on{background:var(--good);border-color:var(--good);color:#fff}
 .tick svg{width:14px;height:14px}
-.cat{padding:6px 0}
+.cat{padding:6px 0;border-radius:8px}
+.cat:hover .t{text-decoration:underline;text-underline-offset:3px}
 .cat .t{display:flex;justify-content:space-between;font-size:14px}
 .pills{display:flex;gap:6px;flex-wrap:wrap}
 .pill{padding:7px 13px;border-radius:999px;background:var(--chip);font-size:13.5px;white-space:nowrap}
@@ -600,7 +601,8 @@ function renderDash() {
   const max = cats.length ? cats[0][1] : 1;
   h = `<h2>by category <span class="r">${money(d.spent)}</span></h2><div class="list">`;
   if (!cats.length) h += `<div class="empty">nothing spent yet this month</div>`;
-  cats.forEach(([c, v]) => { h += `<div class="cat"><div class="t"><span>${esc(c)}</span><span class="amt">${money(v)}</span></div><div class="bar"><i style="width:${Math.max(2, v / max * 100)}%"></i></div></div>`; });
+  cats.forEach(([c, v]) => { h += `<button class="cat" data-catopen="${esc(c)}" style="display:block;width:100%;text-align:left"><div class="t"><span>${esc(c)} <span class="faint" aria-hidden="true">›</span></span><span class="amt">${money(v)}</span></div><div class="bar"><i style="width:${Math.max(2, v / max * 100)}%"></i></div></button>`; });
+  if (cats.length) h += `<div class="faint small" style="margin-top:6px;grid-column:1/-1">tap a category to see every expense in it</div>`;
   $('#d-cats').innerHTML = h + '</div>';
 
   // savings
@@ -658,6 +660,21 @@ function renderTrend(m) {
   });
   h += `</div><div class="trend-l">${data.map(x => `<span${x.k === m ? ' style="color:var(--ink);font-weight:500"' : ''}>${MONTHS[Number(x.k.slice(5, 7)) - 1].slice(0, 3)}</span>`).join('')}</div>`;
   $('#d-trend').innerHTML = h;
+}
+// every expense in one category for the month being viewed, fixed bills included
+function openCategory(cat) {
+  const m = S.month, d = monthData(m);
+  const bills = d.bills.filter(b => (b.category || 'other') === cat).map(b => ({bill: b, date: `${m}-${pad(num(b.day) || 1)}`, amount: num(b.amount)}));
+  const ents = d.variable.filter(e => (e.category || 'other') === cat);
+  const items = [...bills, ...ents.map(e => ({e, date: String(e.date), amount: num(e.amount)}))].sort((a, b) => b.date.localeCompare(a.date));
+  const total = items.reduce((t, i) => t + i.amount, 0);
+  openSheet(`<h3 style="display:flex;justify-content:space-between;gap:10px"><span>${esc(cat)}</span><span>${money(total)}</span></h3>
+    <div class="muted small" style="margin-top:-6px">${monthName(m)} · ${items.length} expense${items.length === 1 ? '' : 's'}${S.scope !== 'all' ? ' · ' + (S.scope === 'firstchair' ? 'first chair' : S.scope) : ''}</div>
+    <div class="list">${items.map(i => i.bill
+      ? `<div class="row" data-editbill="${esc(i.bill.id)}" style="cursor:pointer"><div class="l"><span class="faint small" style="width:44px;flex:none">${dayLabel(i.date)}</span><div><div class="name">${esc(i.bill.name)}</div><div class="faint small">fixed bill${scopeTag(i.bill.scope)}</div></div></div><div class="amt">${money(i.amount)}</div></div>`
+      : `<div class="row" data-entry="${esc(i.e.id)}" style="cursor:pointer"><div class="l"><span class="faint small" style="width:44px;flex:none">${dayLabel(i.date)}</span><div><div class="name">${esc(i.e.merchant || cat)}${hasReceipt(i.e) ? '' : i.e.scope === 'business' ? '<span class="tag warn">no receipt</span>' : ''}</div><div class="faint small">${esc(i.e.source === 'bank' ? 'from bank' : i.e.source || '')}${scopeTag(i.e.scope)}${i.e.note ? ' · ' + esc(i.e.note) : ''}</div></div></div><div class="amt">${money(i.amount)}</div></div>`).join('')}</div>
+    <button class="btn ghost" id="cat-close">close</button>`);
+  $('#cat-close').onclick = closeSheet;
 }
 function ordinal(n) { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
@@ -1402,6 +1419,7 @@ document.addEventListener('click', ev => {
     putSettings(); return;
   }
   if (t.dataset.income) { setTimeout(() => setUType('income'), 0); return; }
+  if (t.dataset.catopen) { openCategory(t.dataset.catopen); return; }
   if (t.dataset.editbill) { openBill(t.dataset.editbill); return; }
   if (t.dataset.entry) { openEntry(t.dataset.entry); return; }
   if (t.id === 'add-saving') { openSaving(); return; }

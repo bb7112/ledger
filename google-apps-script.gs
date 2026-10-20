@@ -8,7 +8,8 @@
 const SECRET = 'CHANGE-ME';
 
 // version 2 (2026-10-20): first chair reimbursements: reimb, submittedOn, paidOn, trip
-const VERSION = 2;
+// version 3 (2026-10-20): 'by category' tab listing every expense under its category
+const VERSION = 3;
 const HEAD = ['id', 'date', 'type', 'amount', 'category', 'merchant', 'scope', 'note', 'source', 'receiptId', 'receiptUrl', 'created', 'reimb', 'submittedOn', 'paidOn', 'trip'];
 const ROOT_FOLDER = 'ledger receipts';
 
@@ -28,9 +29,9 @@ function doPost(e) {
       case 'ping': return out_({ ok: true, version: VERSION });
       case 'list': return out_({ ok: true, version: VERSION, entries: list_(), settings: getSettings_() });
       case 'add':
-      case 'update': return out_({ ok: true, entry: upsert_(body.entry, body.receipt) });
-      case 'delete': remove_(body.entry.id); return out_({ ok: true });
-      case 'settings': saveSettings_(body.settings); return out_({ ok: true });
+      case 'update': { const entry = upsert_(body.entry, body.receipt); refreshCategories_(); return out_({ ok: true, entry }); }
+      case 'delete': remove_(body.entry.id); refreshCategories_(); return out_({ ok: true });
+      case 'settings': saveSettings_(body.settings); refreshCategories_(); return out_({ ok: true });
       case 'receipt': return out_(Object.assign({ ok: true }, receipt_(body.id)));
       case 'taxExport': return out_(Object.assign({ ok: true }, taxExport_(Number(body.year))));
       default: return out_({ ok: false, error: 'unknown action' });
@@ -133,6 +134,72 @@ function getSettings_() {
 function saveSettings_(s) {
   const sh = sheet_('settings', ['settings (managed by the app, do not edit)']);
   sh.getRange(2, 1).setValue(JSON.stringify(s || {}));
+}
+
+// ---------- 'by category' tab ----------
+// rebuilt after every change: each month, each category with its subtotal, every expense under it
+
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const WHO = { personal: 'personal', business: 'business', firstchair: 'first chair' };
+
+function refreshCategories_() {
+  try { buildCategories_(); } catch (err) { console.error('by category tab: ' + err); }
+}
+
+function buildCategories_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('by category') || ss.insertSheet('by category', 1);
+  const entries = list_().filter(e => e.type === 'expense');
+  const settings = getSettings_() || {};
+  const bills = settings.bills || [];
+  const tz = Session.getScriptTimeZone();
+  const thisMonth = Utilities.formatDate(new Date(), tz, 'yyyy-MM');
+
+  const months = Array.from(new Set(entries.map(e => String(e.date).slice(0, 7)).concat(thisMonth))).filter(Boolean).sort().reverse();
+  const W = 6, rows = [['category', 'date', 'store', 'amount', 'who', 'note']], monthRows = [], catRows = [];
+  const push = r => rows.push(r.concat(Array(W - r.length).fill('')));
+
+  months.forEach(m => {
+    const items = entries.filter(e => String(e.date).slice(0, 7) === m).map(e => ({
+      date: e.date, store: e.merchant, amount: Number(e.amount) || 0, category: e.category || 'other', scope: e.scope || 'personal',
+      note: [e.note, e.scope === 'firstchair' ? ({ '': 'to submit', submitted: 'submitted', paid: 'paid back' })[e.reimb || ''] : ''].filter(String).join(' · '),
+    }));
+    // fixed bills count every month (from the first month you used the app)
+    if (m >= months[months.length - 1]) bills.forEach(b => items.push({
+      date: m + '-' + String(b.day || 1).padStart(2, '0'), store: b.name, amount: Number(b.amount) || 0,
+      category: b.category || 'other', scope: b.scope || 'personal', note: 'fixed bill',
+    }));
+    const own = items.filter(i => i.scope !== 'firstchair'), fc = items.filter(i => i.scope === 'firstchair');
+    const sum = a => a.reduce((t, i) => t + i.amount, 0);
+    const [y, mo] = m.split('-');
+
+    push(['']);
+    monthRows.push(rows.length + 1);
+    push([MONTH_NAMES[Number(mo) - 1] + ' ' + y + '  ·  your spending', '', '', sum(own)]);
+    const groups = {};
+    own.forEach(i => (groups[i.category] = groups[i.category] || []).push(i));
+    Object.keys(groups).sort((a, b) => sum(groups[b]) - sum(groups[a])).forEach(cat => {
+      catRows.push(rows.length + 1);
+      push([cat, '', groups[cat].length + (groups[cat].length === 1 ? ' expense' : ' expenses'), sum(groups[cat])]);
+      groups[cat].sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(i => push(['', i.date, i.store, i.amount, WHO[i.scope] || i.scope, i.note]));
+    });
+    if (!own.length) push(['', '', 'nothing logged']);
+    if (fc.length) {
+      catRows.push(rows.length + 1);
+      push(['first chair (paid back to you)', '', fc.length + (fc.length === 1 ? ' charge' : ' charges'), sum(fc)]);
+      fc.sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(i => push(['', i.date, i.store, i.amount, 'first chair', i.note]));
+    }
+  });
+
+  sh.clear();
+  sh.getRange(1, 1, rows.length, W).setValues(rows);
+  sh.getRange(1, 1, 1, W).setFontWeight('bold').setBackground('#212121').setFontColor('#ffffff');
+  sh.getRange(2, 2, rows.length, 1).setNumberFormat('@');
+  sh.getRange(2, 4, rows.length, 1).setNumberFormat('$#,##0.00');
+  monthRows.forEach(r => sh.getRange(r, 1, 1, W).setFontWeight('bold').setFontSize(12).setBackground('#ebe8e1'));
+  catRows.forEach(r => sh.getRange(r, 1, 1, W).setFontWeight('bold').setBackground('#f6f4f0'));
+  sh.setFrozenRows(1);
+  sh.setColumnWidth(1, 230); sh.setColumnWidth(2, 95); sh.setColumnWidth(3, 200); sh.setColumnWidth(4, 95); sh.setColumnWidth(5, 95); sh.setColumnWidth(6, 200);
 }
 
 // ---------- receipts in Drive ----------
