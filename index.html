@@ -407,7 +407,7 @@ const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate
 const today = () => isoDay(new Date());
 const ym = d => d.slice(0, 7);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const APP_VERSION = 'oct 20 · v7';
+const APP_VERSION = 'oct 20 · v8';
 const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 const monthName = m => MONTHS[Number(m.slice(5, 7)) - 1] + (m.slice(0, 4) !== String(new Date().getFullYear()) ? ' ' + m.slice(0, 4) : '');
 const dayLabel = d => { const t = today(); if (d === t) return 'today'; const y = new Date(); y.setDate(y.getDate() - 1); if (d === isoDay(y)) return 'yesterday'; const [Y, M, D] = d.split('-'); return `${MONTHS[M - 1].slice(0, 3)} ${Number(D)}`; };
@@ -518,8 +518,16 @@ async function pull() {
     if (j.settings) S.settings = Object.assign({}, DEFAULTS, j.settings);
     else if (S.settings.bills.length || S.settings.budget) enqueue({action: 'settings', settings: S.settings});
     saveEntries(); saveSettingsLocal();
+    fixAlwaysCategories();
     setSync('ok'); render();
   } catch (e) { setSync('off'); }
+}
+// move anything already logged (parking, pay by phone, e-pass) into its fixed category
+function fixAlwaysCategories() {
+  S.entries.filter(e => e.type === 'expense').forEach(e => {
+    const c = alwaysCategory(`${e.merchant} ${e.note}`);
+    if (c && e.category !== c) updateEntry(Object.assign({}, e, {category: c}));
+  });
 }
 function putSettings() { saveSettingsLocal(); enqueue({action: 'settings', settings: S.settings}); render(); }
 
@@ -788,9 +796,16 @@ function saveUpload() {
 
 // ---------------- parsing typed / spoken lines ----------------
 function titleCase(s) { return s.replace(/(^|[\s\-&\/.])([a-z])/g, (m, p, c) => p + c.toUpperCase()); }
+// stores that always get the same category, no matter what was picked before (Brenda 10-20)
+const ALWAYS = [
+  [/\b(mpa|miami parking|parking|pay ?by ?phone|e[\s\-]?pass)\b/i, 'transport'],
+];
+const alwaysCategory = text => { for (const [re, c] of ALWAYS) if (re.test(String(text || ''))) return c; return null; };
+
 function guessCategory(text, type) {
   const t = ' ' + String(text || '').toLowerCase() + ' ';
   const cats = CATS[type || 'expense'];
+  if ((type || 'expense') === 'expense' && alwaysCategory(t)) return alwaysCategory(t);
   for (const c of [...cats].sort((a, b) => b.length - a.length)) if (c !== 'other' && new RegExp('\\b' + c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(t)) return c;
   for (const [c, words] of Object.entries(KEYWORDS)) {
     if (!cats.includes(c)) continue;
@@ -1060,7 +1075,7 @@ function parseBankList(text) {
     const moneyInFlag = x.sign === '+' || (signed && x.sign === '-' && !minusIsSpend) || /\b(zelle (payment )?from|direct dep|payroll|deposit|refund|interest paid|cash ?back)\b/.test(low);
     const type = moneyInFlag && !isPayment ? 'income' : 'expense';
     const prev = [...S.entries].reverse().find(e => e.type === type && e.merchant && e.merchant.toLowerCase() === titleCase(merchant).toLowerCase());
-    const category = prev ? prev.category : (guessCategory(merchant, type) || (type === 'income' && /refund/.test(low) ? 'refund' : 'other'));
+    const category = (type === 'expense' && alwaysCategory(x.full || x.raw)) || (prev ? prev.category : (guessCategory(merchant, type) || (type === 'income' && /refund/.test(low) ? 'refund' : 'other')));
     const scope = prev ? prev.scope || 'personal' : (guessFC(merchant) ? 'firstchair' : 'personal');
     const dup = S.entries.some(e => e.type === type && Math.abs(num(e.amount) - x.amount) < 0.01 && Math.abs(daysBetween(String(e.date), x.date)) <= 3);
     return {id: uid(), merchant: titleCase(merchant), amount: Math.round(x.amount * 100) / 100, date: x.date, type, category, scope, note: '',
@@ -1549,6 +1564,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // ---------------- start ----------------
 $('#u-date').value = today();
 setUType('expense');
+fixAlwaysCategories();
 route();
 setSync(connected() ? 'wait' : 'local');
 pull();
