@@ -407,7 +407,7 @@ const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate
 const today = () => isoDay(new Date());
 const ym = d => d.slice(0, 7);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const APP_VERSION = 'oct 20 · v8';
+const APP_VERSION = 'oct 20 · v9';
 const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 const monthName = m => MONTHS[Number(m.slice(5, 7)) - 1] + (m.slice(0, 4) !== String(new Date().getFullYear()) ? ' ' + m.slice(0, 4) : '');
 const dayLabel = d => { const t = today(); if (d === t) return 'today'; const y = new Date(); y.setDate(y.getDate() - 1); if (d === isoDay(y)) return 'yesterday'; const [Y, M, D] = d.split('-'); return `${MONTHS[M - 1].slice(0, 3)} ${Number(D)}`; };
@@ -798,7 +798,7 @@ function saveUpload() {
 function titleCase(s) { return s.replace(/(^|[\s\-&\/.])([a-z])/g, (m, p, c) => p + c.toUpperCase()); }
 // stores that always get the same category, no matter what was picked before (Brenda 10-20)
 const ALWAYS = [
-  [/\b(mpa|miami parking|parking|pay ?by ?phone|e[\s\-]?pass)\b/i, 'transport'],
+  [/\b(mpa|miami parking|parking|pay ?by ?phone|e[\s\-]?pass|parking citation|citation)\b/i, 'transport'],
 ];
 const alwaysCategory = text => { for (const [re, c] of ALWAYS) if (re.test(String(text || ''))) return c; return null; };
 
@@ -951,7 +951,7 @@ async function handleImage(file, method) {
     // a screenshot of a bank's transaction list goes to the bank reader instead
     if (method === 'screenshot') {
       const list = parseBankList(data.text);
-      if (list.length >= 2 && moneyIn(data.text).filter(a => a.sign).length >= 2) {
+      if (list.length >= 2 && (moneyIn(data.text).filter(a => a.sign).length >= 2 || alwaysCategory(data.text))) {
         U.receipt = null; $('#u-receipt').classList.add('hidden');
         U.method = 'bank'; $$('.method').forEach(b => b.classList.toggle('on', b.dataset.method === 'bank'));
         setBankMode(true); B.items = list; B.open = null; renderBank();
@@ -1007,7 +1007,21 @@ function nameFromBlock(text) {
 }
 const isDateHeader = l => !!bankDate(l) && !moneyIn(l).length && l.replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?|\b(today|yesterday|mon|tue|wed|thu|fri|sat|sun)[a-z]*\b/gi, '').replace(/[^a-z]/gi, '').length <= 2;
 
+// what to call a row with no store name, when the whole screenshot is from a parking or toll app
+function docLabel(text) {
+  const t = String(text).toLowerCase();
+  if (/e[\s\-]?pass/.test(t)) return 'E-PASS';
+  if (/pay ?by ?phone/.test(t)) return 'PayByPhone parking';
+  if (/\bmpa\b|miami parking/.test(t)) return 'MPA parking';
+  return 'Parking';
+}
 function parseBankList(text) {
+  // a parking / toll app screenshot says so in its title (the lines above the first date or amount).
+  // then every row in it is that app's charge. a bank list only matches row by row.
+  const allLines = String(text).split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const firstRow = allLines.findIndex(l => bankDate(l) || moneyIn(l).length);
+  const title = allLines.slice(0, firstRow < 0 ? 3 : Math.min(firstRow, 4)).join(' ');
+  const docAlways = alwaysCategory(title), label = docLabel(title);
   const lines = String(text).split(/\n+/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const skip = /\b(available|current balance|statement|credit limit|minimum payment|due date|see all|search|all transactions|activity)\b/i;
   const raw = [];
@@ -1060,7 +1074,7 @@ function parseBankList(text) {
       let name = line.slice(0, a.index).trim();
       if (!/[a-z]{2,}/i.test(name)) name = pendingName;
       pendingName = '';
-      if (!/[a-z]{2,}/i.test(name)) continue;
+      if (!/[a-z]{2,}/i.test(name) && !docAlways) continue;   // a parking app's rows can have no name
       raw.push({raw: name, full: line, sign: a.sign, amount: Math.round(a.amount * 100) / 100, date: d || curDate || today()});
     }
   }
@@ -1069,16 +1083,20 @@ function parseBankList(text) {
   const signed = raw.filter(x => x.sign).length;
   const minusIsSpend = raw.filter(x => x.sign === '-').length >= raw.filter(x => x.sign === '+').length;
   return raw.map(x => {
-    const merchant = cleanMerchant(x.raw);
+    let merchant = cleanMerchant(x.raw);
+    const detail = merchant;
+    // every row in a parking / toll app screenshot is that app's charge
+    const nameless = !!docAlways;
+    if (nameless) merchant = label.toLowerCase();
     const low = (x.full || x.raw).toLowerCase();
     const isPayment = /\b(payment to crd|payment to card|card payment|payment thank you|thank you|autopay|auto pay|online pymt|epay|to savings|from savings|transfer to|transfer from|xfer|venmo cashout)\b/.test(low) && !/\brefund\b/.test(low);
     const moneyInFlag = x.sign === '+' || (signed && x.sign === '-' && !minusIsSpend) || /\b(zelle (payment )?from|direct dep|payroll|deposit|refund|interest paid|cash ?back)\b/.test(low);
     const type = moneyInFlag && !isPayment ? 'income' : 'expense';
     const prev = [...S.entries].reverse().find(e => e.type === type && e.merchant && e.merchant.toLowerCase() === titleCase(merchant).toLowerCase());
-    const category = (type === 'expense' && alwaysCategory(x.full || x.raw)) || (prev ? prev.category : (guessCategory(merchant, type) || (type === 'income' && /refund/.test(low) ? 'refund' : 'other')));
+    const category = (type === 'expense' && (alwaysCategory(`${x.full || ''} ${x.raw} ${merchant}`) || (docAlways && nameless ? docAlways : null))) || (prev ? prev.category : (guessCategory(merchant, type) || (type === 'income' && /refund/.test(low) ? 'refund' : 'other')));
     const scope = prev ? prev.scope || 'personal' : (guessFC(merchant) ? 'firstchair' : 'personal');
     const dup = S.entries.some(e => e.type === type && Math.abs(num(e.amount) - x.amount) < 0.01 && Math.abs(daysBetween(String(e.date), x.date)) <= 3);
-    return {id: uid(), merchant: titleCase(merchant), amount: Math.round(x.amount * 100) / 100, date: x.date, type, category, scope, note: '',
+    return {id: uid(), merchant: nameless ? label : titleCase(merchant), amount: Math.round(x.amount * 100) / 100, date: x.date, type, category, scope, note: nameless && detail && detail !== merchant ? detail : '',
       status: isPayment ? 'payment' : dup ? 'dup' : type === 'income' ? 'in' : '', on: !isPayment && !dup && type === 'expense'};
   });
 }
@@ -1141,7 +1159,7 @@ function bankClick(t) {
     if (!sel.length) { toast('pick at least one'); return true; }
     const now = new Date().toISOString();
     sel.forEach(x => addEntry({id: uid(), date: x.date, type: x.type, amount: x.amount, category: x.category || 'other', merchant: x.merchant, scope: x.type === 'income' ? 'personal' : x.scope,
-      note: '', source: 'bank', receiptId: '', receiptUrl: '', created: now, reimb: '', submittedOn: '', paidOn: '', trip: ''}));
+      note: x.note || '', source: 'bank', receiptId: '', receiptUrl: '', created: now, reimb: '', submittedOn: '', paidOn: '', trip: ''}));
     toast(`${sel.length} transaction${sel.length === 1 ? '' : 's'} added`);
     resetUpload(); render();
     return true;
